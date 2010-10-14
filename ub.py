@@ -17,8 +17,8 @@ import uuid
 import re
 
 # Configuration!!
-MONGO_HOST = '139.91.190.45'
-REDIS_HOST = '139.91.190.41'
+MONGO_HOST = ''
+REDIS_HOST = ''
 
 # See http://goo.gl/NQZX
 PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
@@ -135,14 +135,14 @@ def create_pcc10(subscription, entries):
                            "\n".join([etree.tostring(x, xml_declaration=False) for x in entries]),
                            subscription['queryId'])
 
-DEFAULT_CARE_MANAGER = 'http://139.91.190.40:8080/axis2/services/QUPC_IN043200UV01'
+DEFAULT_CARE_MANAGER = 'http://139.91.190.40:8080/axis2/services/QUPC_AR004030UV_Service'
 def send_pcc10(subscription, entries):
     endpoint = subscription['endpoint_']
     if endpoint is None:
         endpoint = DEFAULT_CARE_MANAGER
     req = urllib2.Request(endpoint)
     req.add_header('content-type', 'application/soap+xml;charset=utf-8;action="urn:hl7-org:v3:QUPC_IN043200UV01"')
-    xml = create_pcc10(subscription['patientId'], entries)
+    xml = create_pcc10(subscription, entries)
     soap = """<?xml version='1.0' encoding='UTF-8'?>
 <soapenv:Envelope xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope">
 <soapenv:Header xmlns:wsa="http://www.w3.org/2005/08/addressing">
@@ -157,8 +157,9 @@ def send_pcc10(subscription, entries):
         fp = urllib2.urlopen(req)
         response = fp.read()
         print 'SUBMITTED AND GOT\n',response
-    except urllib2.HTTPError, ex:
-        print "PCC10 Error: %s %s" % (ex.code, ex.reason)
+    except urllib2.URLError, ex:
+        msg = ex.read()
+        print "PCC10 Error: %s %s" % (ex.code, msg)
         raise ex
     except:
         print "PCC10 Unexpected error:", sys.exc_info()[0]
@@ -182,9 +183,9 @@ class SubscriptionLet(Greenlet):
         
     def match_subscription(self, doc):
         provcode = self.subscription.get('careProvisionCode')
-        q = "h:component/h:structuredBody/h:component/h:section/h:entry/*"
+        q = "h:component/h:structuredBody/h:component/h:section/h:entry//*"
         if provcode is not None:
-            q += "[h:templateId/@root='%s']" % provcode
+            q += "[h:templateId/@root='%s']" % PCODES_TEMPLATE_IDS.get(provcode)
         l = doc.xpath(q, namespaces={'h':'urn:hl7-org:v3'})
         return l
 
@@ -199,7 +200,7 @@ class SubscriptionLet(Greenlet):
             lastUpdated = subscription['lastChecked_']
             endpoint = subscription.get('endpoint_') or 'http://example.org/'
             patientId = subscription['patientId']
-            patre = re.compile('^' + patientId)
+            patre = re.compile('^' + patientId+'\^')
             query = {'patientId':patre, 'mimeType': 'text/xml', 'storedAt_':{'$gt': lastUpdated}}
             careRecordTimePeriod = subscription.get('careRecordTimePeriod')
             # if careRecordTimePeriod is not None:
@@ -241,6 +242,7 @@ class SubscriptionLet(Greenlet):
                     self.check_subscription()
                 except Exception, e:
                     print 'Oh no! just got: '+str(e)
+                    raise
                 finally:
                     self.checking = False
                 print "[%s] Going to sleep for %d secs ..." % (self.id(), self.timeout)
