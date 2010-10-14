@@ -34,8 +34,8 @@ import redis
 
 # Configuration!!
 MY_REPO_ID= "1.1.1.1.1"
-MONGO_HOST = "139.91.190.45"
-REDIS_HOST = '139.91.190.41'
+MONGO_HOST = ""
+REDIS_HOST = ''
 
 NS = {"soap":"http://www.w3.org/2003/05/soap-envelope", 
       "wsa":"http://www.w3.org/2005/08/addressing",
