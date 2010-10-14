@@ -24,10 +24,18 @@ import uuid
 from lxml import etree
 import pymongo
 import hashlib
+import time
+import base64
+import os
+import sys
+import tempfile
+import simplejson as json
+import redis
 
 # Configuration!!
 MY_REPO_ID= "1.1.1.1.1"
 MONGO_HOST = "139.91.190.45"
+REDIS_HOST = '139.91.190.41'
 
 NS = {"soap":"http://www.w3.org/2003/05/soap-envelope", 
       "wsa":"http://www.w3.org/2005/08/addressing",
@@ -36,7 +44,8 @@ NS = {"soap":"http://www.w3.org/2003/05/soap-envelope",
       "lcm":"urn:oasis:names:tc:ebxml-regrep:xsd:lcm:3.0",
       "rim":"urn:oasis:names:tc:ebxml-regrep:xsd:rim:3.0",
       "query":"urn:oasis:names:tc:ebxml-regrep:xsd:query:3.0",
-      "xop":"http://www.w3.org/2004/08/xop/include"}
+      "xop":"http://www.w3.org/2004/08/xop/include",
+      'hl7':'urn:hl7-org:v3'}
 
 # The actions for the supported XDS transactions
 PNR_XDS_OP = 'urn:ihe:iti:2007:ProvideAndRegisterDocumentSet-b'
@@ -108,7 +117,7 @@ def get_classification_multi(xml, scheme, obj):
                 cd = c.attrib['nodeRepresentation']
                 return {"codingScheme":cs.text, "code":cd}
         l = xml.xpath("//rim:Classification[@classificationScheme='%s' and @classifiedObject='%s']"%
-                (scheme, obj), namespaces=NS)
+                      (scheme, obj), namespaces=NS)
         return [cons_code(i) for i in l]
 
 def xml_authors(xml, scheme, authrs, clObj):
@@ -116,13 +125,13 @@ def xml_authors(xml, scheme, authrs, clObj):
         authors = type(authrs) == list and authrs or [authrs]
         for author in authors:
                 c  = etree.SubElement(xml, RIM+"Classification",
-                        attrib={'id': uuid.uuid4().urn, 
-                                'objectType':CLASSIFICATION_OBJTYPE,
-                                'classificationScheme': scheme,
-                                'classifiedObject': clObj,
-                                'nodeRepresentation':'',
-                                'home':''
-                                })
+                                      attrib={'id': uuid.uuid4().urn, 
+                                              'objectType':CLASSIFICATION_OBJTYPE,
+                                              'classificationScheme': scheme,
+                                              'classifiedObject': clObj,
+                                              'nodeRepresentation':'',
+                                              'home':''
+                                              })
                 for k in author.keys():
                         xml_slot(c, k, author[k])
                 n = etree.SubElement(c, RIM+"Name")
@@ -130,7 +139,8 @@ def xml_authors(xml, scheme, authrs, clObj):
                 v = etree.SubElement(c, RIM+"VersionInfo", attrib={'versionName':'1.1'})
 
 def xml_slot(xml, name, values):
-        if values is None: return
+        if values is None:
+                return
         RIM = "{%s}" % NS['rim']
         s = etree.SubElement(xml, RIM+"Slot", attrib={'name':name})
         vl = etree.SubElement(s, RIM+"ValueList")
@@ -140,18 +150,19 @@ def xml_slot(xml, name, values):
                 vt.text = "%s"%v
 
 def xml_classification(xml, scheme, codes, clObj):
-        if codes is None: return
+        if codes is None: 
+                return
         RIM = "{%s}" % NS['rim']
         cds = type(codes)==list and codes or [codes]
         for coded in cds:
                 c  = etree.SubElement(xml, RIM+"Classification",
-                        attrib={'id': uuid.uuid4().urn,
-                                'objectType':CLASSIFICATION_OBJTYPE,
-                                'classificationScheme': scheme,
-                                'classifiedObject': clObj,
-                                'nodeRepresentation':coded['code'],
-                                'home':''
-                                })
+                                      attrib={'id': uuid.uuid4().urn,
+                                              'objectType':CLASSIFICATION_OBJTYPE,
+                                              'classificationScheme': scheme,
+                                              'classifiedObject': clObj,
+                                              'nodeRepresentation':coded['code'],
+                                              'home':''
+                                              })
                 xml_slot(c, 'codingScheme', coded['codingScheme'])
                 n = etree.SubElement(c, RIM+"Name")
                 d = etree.SubElement(c, RIM+"Description")
@@ -161,13 +172,13 @@ def xml_external_id(xml, scheme, name, value, idObj):
         if value is None: return
         RIM = "{%s}" % NS['rim']
         c  = etree.SubElement(xml, RIM+"ExternalIdentifier",
-                        attrib={'id': uuid.uuid4().urn,
-                                'objectType':EXTERNID_OBJTYPE,
-                                'identificationScheme':scheme,
-                                'value':value,
-                                'registryObject':idObj,
-                                'home':''
-                                })
+                              attrib={'id': uuid.uuid4().urn,
+                                      'objectType':EXTERNID_OBJTYPE,
+                                      'identificationScheme':scheme,
+                                      'value':value,
+                                      'registryObject':idObj,
+                                      'home':''
+                                      })
         n = etree.SubElement(c, RIM+"Name")
         l=etree.SubElement(n, RIM+"LocalizedString", 
                            attrib={'{http://www.w3.org/XML/1998/namespace}lang':'en-US',
@@ -183,17 +194,17 @@ def xml_document(xml, doc):
                         if n in doc: xml_slot(xml, n, doc[n])
         id = doc['entryUUID']
         c  = etree.SubElement(xml, RIM+"ExtrinsicObject",
-                        attrib={'id': id,
-                                'objectType':DOC_OBJTYPE,
-                                'status':'urn:oasis:names:tc:ebxml-regrep:StatusType:'+doc.get('availabilityStatus'),
-                                'mimeType':doc['mimeType'],
-                                'isOpaque':'false',
-                                'home':''
-                                })
+                              attrib={'id': id,
+                                      'objectType':DOC_OBJTYPE,
+                                      'status':'urn:oasis:names:tc:ebxml-regrep:StatusType:'+doc.get('availabilityStatus'),
+                                      'mimeType':doc['mimeType'],
+                                      'isOpaque':'false',
+                                      'home':''
+                                      })
         add_slots(c, ['availabilityStatus', 'URI', 'creationTime', 'hash', 'languageCode', 
-                        'repositoryUniqueId','serviceStartTime','serviceStopTime'
-                        ,'size', 'sourcePatientId', 'sourcePatientInfo'
-                        ,'legalAuthenticator'])
+                      'repositoryUniqueId','serviceStartTime','serviceStopTime'
+                      ,'size', 'sourcePatientId', 'sourcePatientInfo'
+                      ,'legalAuthenticator'])
         n = etree.SubElement(c, RIM+"Name")
         d = etree.SubElement(c, RIM+"Description")
         v = etree.SubElement(c, RIM+"VersionInfo", attrib={'versionName':'1.1'})
@@ -213,10 +224,10 @@ def xml_submission(xml, doc):
                         if n in doc: xml_slot(xml, n, doc[n])
         id = doc['entryUUID']
         c  = etree.SubElement(xml, RIM+"RegistryPackage",
-                        attrib={'id': id,
-                                'objectType':REGPACKGE_OBJTYPE,
-                                'status':'urn:oasis:names:tc:ebxml-regrep:StatusType:Approved'
-                                })
+                              attrib={'id': id,
+                                      'objectType':REGPACKGE_OBJTYPE,
+                                      'status':'urn:oasis:names:tc:ebxml-regrep:StatusType:Approved'
+                                      })
         add_slots(c, ['submissionTime', 'intendedRecipient'])
         n = etree.SubElement(c, RIM+"Name")
         d = etree.SubElement(c, RIM+"Description")
@@ -224,11 +235,11 @@ def xml_submission(xml, doc):
         xml_authors(c, AUTHOR_SSET_CLASS, doc.get('author'), id) 
         xml_classification(c, CT_SSET_CLASS, doc.get('contentTypeCode'), id)
         cc  = etree.SubElement(c, RIM+"Classification",
-                              attrib={'id': uuid.uuid4().urn,
-                                      'objectType':CLASSIFICATION_OBJTYPE,
-                                      'classifiedObject': id,
-                                      'classificationNode':"urn:uuid:a54d6aa5-d40d-43f9-88c5-b4633d873bdd"
-                                      })
+                               attrib={'id': uuid.uuid4().urn,
+                                       'objectType':CLASSIFICATION_OBJTYPE,
+                                       'classifiedObject': id,
+                                       'classificationNode':"urn:uuid:a54d6aa5-d40d-43f9-88c5-b4633d873bdd"
+                                       })
         n = etree.SubElement(cc, RIM+"Name")
         d = etree.SubElement(cc, RIM+"Description")
         v = etree.SubElement(cc, RIM+"VersionInfo", attrib={'versionName':'1.1'})
@@ -243,7 +254,7 @@ def get_classification(xml, scheme, obj):
 
 def get_external_id(xml, scheme, obj):
         l = xml.xpath("//rim:ExternalIdentifier[@identificationScheme='%s' and @registryObject='%s']"%
-                (scheme, obj), namespaces=NS)
+                      (scheme, obj), namespaces=NS)
         if len(l)==0: return None
         (c,) = l
         return c.attrib['value']
@@ -265,12 +276,16 @@ def get_slot_single(o, name):
         return None
 
 def parse_provide_and_register(xml):
-        (cl, ) = xml.xpath("//lcm:SubmitObjectsRequest/rim:RegistryObjectList/rim:Classification[@classificationNode='%s']"%SSET_CLASS_NODE, namespaces=NS)
+        # record the current timestamp
+        now = time.time()
+        savdir = os.sep.join(["%02d" % i for i in time.gmtime(now)[:3]])+os.sep
+        cl = xml.xpath("//lcm:SubmitObjectsRequest/rim:RegistryObjectList/rim:Classification[@classificationNode='%s']"%SSET_CLASS_NODE, 
+                       namespaces=NS)[0]
         sId = cl.get("classifiedObject")
-        (rp, ) = xml.xpath("//rim:RegistryPackage[@id='%s']" % sId, namespaces=NS)
+        rp = xml.xpath("//rim:RegistryPackage[@id='%s']" % sId, namespaces=NS)[0]
         sUUID = sId
         if not sUUID.startswith("urn:uuid:"): sUUID = uuid.uuid4().urn
-        sset = {}
+        sset = {"storedAt_":now}
         sset["entryUUID"] = sUUID
         sset["submissionTime"] = get_slot_single(rp, "submissionTime")
         sset["intendedRecipient"] = get_slot_multi(rp, "intendedRecipient")
@@ -291,9 +306,9 @@ def parse_provide_and_register(xml):
                 l = xml.xpath("//rim:ExtrinsicObject[@id='%s']"%dId, namespaces=NS)
                 if l is None or len(l)==0: continue
                 eo = l[0]
-                (cid,) = xml.xpath("//xdsb:Document[@id='%s']/xop:Include/@href" % dId, namespaces=NS)
-                cid = "<%s>" % cid[4:]
-                docen = {}
+                # (cid,) = xml.xpath("//xdsb:Document[@id='%s']/xop:Include/@href" % dId, namespaces=NS)
+                # cid = "<%s>" % cid[4:]
+                docen = {"storedAt_":now}
                 docen["availabilityStatus"]="Approved"
                 f = get_author(xml, AUTHOR_DOC_CLASS, dId)
                 if f: docen["author"] = f
@@ -329,10 +344,10 @@ def parse_provide_and_register(xml):
                 docen["sourcePatientInfo"] = get_slot_multi(eo, "sourcePatientInfo")
                 docen["typeCode"] = get_classification(xml, TC_DOC_CLASS, dId)
                 docen["uniqueId"] = get_external_id(xml, UNIQID_DOC_SCHEME, dId)
-                docen["filename"] = dUUID[9:] + guess_suffix(docen['mimeType'])
+                docen["filename"] = savdir + dUUID[9:] + guess_suffix(docen['mimeType'])
                 docen["URI"] = "/xdsdocs/" + docen["filename"]
                 docen["inSubmissionUUID"] = sUUID
-                sset["docs"][cid] = docen
+                sset["docs"][dId] = docen
         return sset
 
 SUFFIXES_FOR_TYPES = {
@@ -345,10 +360,10 @@ SUFFIXES_FOR_TYPES = {
         'image/gif' : 'gif',
         'image/png' : 'png',
         'image/jpeg' : 'jpg'
-}
+        }
 def guess_suffix(ct):
-    if ct in SUFFIXES_FOR_TYPES: return "."+SUFFIXES_FOR_TYPES[ct]
-    return ''
+        if ct in SUFFIXES_FOR_TYPES: return "."+SUFFIXES_FOR_TYPES[ct]
+        return ''
 
 def parse_content_type(ct):
         s = "content_type="+ct
@@ -356,6 +371,7 @@ def parse_content_type(ct):
         return dict([tuple(l.split('=')) for l in v])
 
 SUCCESS_RESULT_STATUS = "urn:oasis:names:tc:ebxml-regrep:ResponseStatusType:Success"
+FAILURE_RESULT_STATUS = "urn:oasis:names:tc:ebxml-regrep:ResponseStatusType:Failure"
 
 def handle_mtom_oper(msg):
         from lxml import etree
@@ -368,32 +384,62 @@ def handle_mtom_oper(msg):
                              namespaces=NS)[0].text
         oper = wact.text
         resAct = oper + "Response"
-        (body,) = root.xpath("/soap:Envelope/soap:Body", namespaces=NS)
+        body = root.xpath("/soap:Envelope/soap:Body", namespaces=NS)[0]
         print "---> TRANSACTION: " , oper[oper.rfind(':')+1:]
         if oper == PNR_XDS_OP:#w is not None:
+                attached = dict([(m['Content-ID'].strip(), m) for m in msgs[1:]])
+                docs_data = {}
+                for xml_doc in body.xpath("//xdsb:Document", namespaces=NS):
+                        xop = xml_doc.xpath("xop:Include/@href", namespaces=NS)
+                        if len(xop) == 1:
+                                cid = "<%s>" % xop[0].strip()[4:]
+                                m = attached.get(cid)
+                                data = m.get_payload(decode=True)
+                        else:
+                                data = base64.b64decode(xml_doc.text)
+                        dId = xml_doc.attrib['id']
+                        tmpfp, tmpfn = tempfile.mkstemp()
+                        c = os.write(tmpfp, data)
+                        os.close(tmpfp)
+                        docs_data[dId] = {'tmpfn': tmpfn, 'size':c,
+                                          'hash': hashlib.sha1(data).hexdigest()}
+                attached = None
+                msg = None
                 sset = parse_provide_and_register(body)
                 docs = sset["docs"]
                 sset["docs"] = []
                 con = pymongo.Connection(host=MONGO_HOST)
-                for m in msgs[1:]:
-                        cid = m['Content-ID']
-                        doc = docs[cid]
-                        fn  = doc["filename"]
-                        data = m.get_payload(decode=True)
-                        with open("static/"+fn, "wb") as fp:
-                                fp.write(data)
-                                doc["size"] = fp.tell()
-                        print "wrote ", fn
-                        doc["hash"] = hashlib.sha1(data).hexdigest()
-                        con.xds.docs.insert(doc)
-                        sset['docs'].append(doc['entryUUID'])
-                        print 'Document',doc['entryUUID'], 'inserted'
-                con.xds.ssets.insert(sset)
-                print 'submission',sset['entryUUID'], 'inserted'
-                con.disconnect()
+                try:
+                        for dId,doc in docs.items():
+                                doc_data = docs_data[dId]
+                                fn  = "static"+os.sep+doc["filename"]
+                                os.renames(doc_data['tmpfn'], fn)
+                                print "wrote ", fn
+                                doc['size'] = doc_data['size']
+                                doc["hash"] = doc_data['hash']
+                                con.xds.docs.insert(doc)
+                                sset['docs'].append(doc['entryUUID'])
+                                print 'Document',doc['entryUUID'], 'inserted'
+                        mongoId = con.xds.ssets.insert(sset)
+                        print 'submission',sset['entryUUID'], 'inserted'
+                except Exception, ex:
+                        print "ERROR: %s" % ex
+                        resultStatus = FAILURE_RESULT_STATUS
+                else:
+                        resultStatus = SUCCESS_RESULT_STATUS
+                        # 
+                        # Send notification to the UpdateBroker for the newly 
+                        # 
+                        sset['id'] = str(mongoId)
+                        del sset['_id']
+                        key = 'xds:pcc-cm:new-submission'
+                        r = redis.Redis(host=REDIS_HOST)
+                        r.rpush(key, json.dumps(sset))
+                finally:
+                        con.disconnect()
                 RS = NS['rs']
                 res = etree.Element("{%s}RegistryResponse" % RS)
-                res.attrib['status'] = SUCCESS_RESULT_STATUS
+                res.attrib['status'] = resultStatus
                 soapMsg = build_soap_msg(resAct, wmesgid, res)
                 ret = generate_mtom(soapMsg, resAct)
                 #print ret
@@ -580,28 +626,140 @@ def handle_simple_soap_oper(inp):
         return "satisfied?"
 
 class XDS_Handler:
-    def GET(self):
-        return 'Hello, world!'
-    def POST(self):
-        #print "TE: "+web.ctx.env.get('HTTP_TRANSFER_ENCODING', 'none')
-        ct = web.ctx.env.get('CONTENT_TYPE')
-        print "GOT Content-type:",ct
-        d = parse_content_type(ct)
-        data = web.data()
-        if d['content_type']=='multipart/related':
-           with open('mtom.dat', 'wb') as fp:
-                fp.write(data)
-           fp = email.parser.FeedParser()
-           fp.feed("Content-type: "+ct+"\r\n")
-           fp.feed(data)
-           msg = fp.close()
-           for chunk in handle_mtom_oper(msg):
-                yield chunk
-        else:
-                print "GOT SOAP:\n", data
-                yield handle_simple_soap_oper(data)
+        def GET(self):
+                web.header('Content-type', 'text/html')
+                return """<p>This is an <a href='http://www.ihe.net/'>IHE</a> XDS Registry and Repository server. 
+Some links to begin with:</p>
+<ul>
+<li><a href='http://www.ihe.net/Technical_Framework/index.cfm#IT'>IT Infrastructure Technical Framework</a></li>
+<li><a href='http://wiki.ihe.net/index.php?title=XDS.b'>XDS implementation</a></li>
+</ul>
+<p>
+ &copy; 2010 FORTH-ICS All rights reserved.
+"""
+        def POST(self):
+                # print "TE: "+web.ctx.env.get('HTTP_TRANSFER_ENCODING', 'none')
+                ct = web.ctx.env.get('CONTENT_TYPE')
+                print "GOT Content-type:",ct
+                d = parse_content_type(ct)
+                data = web.data()
+                if d['content_type']=='multipart/related':
+                        with open('mtom.dat', 'wb') as fp:
+                                fp.write(data)
+                        fp = email.parser.FeedParser()
+                        fp.feed("Content-type: "+ct+"\r\n")
+                        fp.feed(data)
+                        msg = fp.close()
+                        for chunk in handle_mtom_oper(msg):
+                                yield chunk
+                else:
+                        print "GOT SOAP:\n", data
+                        yield handle_simple_soap_oper(data)
+
+# See <http://wiki.ihe.net/index.php?title=PCC-9>
+
+class PCCCM_Handler:
+        def GET(self):
+                web.header('Content-type', 'text/html')
+                return """<p>This is an <a href='http://www.ihe.net/'>IHE</a> PCC-CM server 
+accepting PCC-9 messages. 
+Some links to begin with:</p>
+<ul>
+<li><a href='http://wiki.ihe.net/index.php?title=PCC-9'>PCC-9</a></li>
+<li><a href='http://wiki.ihe.net/index.php?title=PCC_TF-2'>PCC TF-2</a></li>
+</ul>
+<p>
+ &copy; 2010 FORTH-ICS All rights reserved.
+"""
+                pass
+        def POST(self):
+                data = web.data()
+                print 'Got\n',data
+                root = etree.fromstring(data)
+                l = root.xpath('/soap:Envelope/soap:Header/wsa:ReplyTo/wsa:Address', namespaces=NS)
+                if len(l) == 0:
+                        # return 'Error, you need to send a wsa:ReplyTo/wsa:Address message'
+                        endpoint = None
+                else:
+                        endpoint = l[0].text
+                l = root.xpath('//hl7:QUPC_IN043100UV01', namespaces=NS)
+                if len(l) == 0:
+                        return 'Error, you need to send a PCC 09 xml message'
+                pcc9 = l[0]
+                l = pcc9.xpath('hl7:controlActProcess/hl7:queryByParameter/hl7:parameterList', namespaces=NS)
+                if len(l) == 0:
+                        return 'Error, you need to send a PCC 09 xml message (no parameter list!)'
+                m = pcc9.xpath('hl7:controlActProcess/hl7:id/@extension', namespaces=NS)
+                if len(m) == 0:
+                        return 'Error, you need to send a PCC 09 xml message (no query id in the controlAct!)'
+                queryId = m[0]
+                con = None
+                try:
+                        con = pymongo.Connection(host=MONGO_HOST)
+                        coll = con.xds.pcc
+                        for pl in l:
+                                subscription = {'endpoint_': endpoint, 'lastChecked_':0, 'queryId':queryId}
+                                t = pl.xpath("hl7:careProvisionCode/hl7:value/@code", namespaces=NS)
+                                if len(t)>0:
+                                        subscription['careProvisionCode'] = t[0]
+                                subscription['patientId'] = pl.xpath("hl7:patientId/hl7:value/@extension", namespaces=NS)[0]
+
+                                t = pl.xpath('hl7:patientName/hl7:value/hl7:given', namespaces=NS)
+                                pat_fn = t[0].text if len(t)>0 else ''
+                                t = pl.xpath('hl7:patientName/hl7:value/hl7:family', namespaces=NS)
+                                pat_ln = t[0].text if len(t)>0 else ''
+                                subscription['patientName'] = {'given':pat_fn, 'family':pat_ln}
+ 
+                                t = pl.xpath("hl7:maximumHistoryStatements/hl7:value/@value", namespaces=NS)
+                                subscription['maximumHistoryStatements'] = len(t)>0 and int(t[0]) or 50
+                                t = pl.xpath('hl7:careRecordTimePeriod/hl7:value', namespaces=NS)
+                                if len(t) <> 0:
+                                        low = t[0].xpath('hl7:low/@value', namespaces=NS)[0]
+                                        high = t[0].xpath('hl7:high/@value', namespaces=NS)[0]
+                                        subscription['careRecordTimePeriod'] = {'low':low, 'high':high}
+                                t = pl.xpath('hl7:clinicalStatementTimePeriod/hl7:value', namespaces=NS)
+                                if len(t) <> 0:
+                                        low = t[0].xpath('hl7:low/@value', namespaces=NS)[0]
+                                        high = t[0].xpath('hl7:high/@value', namespaces=NS)[0]
+                                        subscription['clinicalStatementTimePeriod'] = {'low':low, 'high':high}
+                                mongoId = coll.insert( subscription )
+                                # 
+                                # Send notification to the UpdateBroker through Redis
+                                subscription['id'] = str(mongoId)
+                                del subscription['_id']
+                                key = 'xds:pcc-cm:new-subscr'
+                                r = redis.Redis(host=REDIS_HOST)
+                                r.rpush(key, json.dumps(subscription))
+                except Exception, ex:
+                        print "Unexpected error:", str(ex)
+                finally:
+                        if con is not None:
+                                con.disconnect()
+                web.header('Content-Type', 'application/soap+xml')
+                return """<s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope'>
+ <s:Body>
+    <v3:MCCI_IN000002UV01 ITSVersion='XML_1.0' xmlns:v3='urn:hl7-org:v3'>
+	<v3:id/>
+	<v3:creationTime/>
+	<v3:interactionId/>
+	<v3:processingCode/>
+	<v3:processingModeCode/>
+	<v3:acceptAckCode/>
+	<v3:receiver typeCode='RCV'>
+		<v3:device classCode='DEV' determinerCode='INSTANCE'>
+			<v3:id/>
+		</v3:device>
+	</v3:receiver>
+	<v3:sender typeCode='RCV'>
+		<v3:device classCode='DEV' determinerCode='INSTANCE'>
+			<v3:id/>
+		</v3:device>
+	</v3:sender>
+</v3:MCCI_IN000002UV01></s:Body></s:Envelope>"""
+
 
 urls = ("/xdsref/.*", "test",
+        "/pcc/.*", "PCCCM_Handler",
         "/.*", "XDS_Handler")
 app = web.application(urls, globals())
 
