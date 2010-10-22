@@ -4,7 +4,8 @@ from gevent import monkey; monkey.patch_all()
 from gevent import wsgi
 from gevent import Greenlet
 import gevent
-from gevent.queue import Queue
+# from gevent.queue import Queue
+from gevent.event import Event
 import pymongo
 from pymongo import objectid
 import os
@@ -14,11 +15,10 @@ import sys
 import urllib2
 import simplejson as json
 import uuid
-import re
 
 # Configuration!!
-MONGO_HOST = ''
-REDIS_HOST = ''
+MONGO_HOST = '139.91.190.45'
+REDIS_HOST = '139.91.190.41'
 
 # See http://goo.gl/NQZX
 PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
@@ -53,6 +53,8 @@ def parsePid(patientId):
 def create_pcc10(subscription, entries):
     (pid, pidroot) = parsePid(subscription['patientId'])
     patName = subscription['patientName']
+    pertInfo = "\n".join(["<pertinentInformation3>%s</pertinentInformation3>" % etree.tostring(x, xml_declaration=False) 
+                          for x in entries])
     return """<QUPC_IN043200UV01 xmlns='urn:hl7-org:v3' ITSVersion='XML_1.0'
   xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'>
   <id root='1' extension='1'/>
@@ -113,9 +115,7 @@ def create_pcc10(subscription, entries):
                 </patientPerson>
 	      </patient>
 	    </recordTarget>
-            <pertinentInformation3>
 %s
-            </pertinentInformation3>
           </careProvisionEvent>
 	</subject2>
       </registrationEvent>
@@ -132,7 +132,7 @@ def create_pcc10(subscription, entries):
                            pid, 
                            patName['given'],
                            patName['family'],
-                           "\n".join([etree.tostring(x, xml_declaration=False) for x in entries]),
+                           pertInfo,
                            subscription['queryId'])
 
 DEFAULT_CARE_MANAGER = 'http://139.91.190.40:8080/axis2/services/QUPC_AR004030UV_Service'
@@ -152,7 +152,7 @@ def send_pcc10(subscription, entries):
 <soapenv:Body>%s</soapenv:Body>
 </soapenv:Envelope>""" % (uuid.uuid4().urn, xml)
     req.add_data(soap.encode('utf-8'))
-    print 'SENDING\n', soap
+    # print 'SENDING\n', soap
     try:
         fp = urllib2.urlopen(req)
         response = fp.read()
@@ -170,16 +170,14 @@ class SubscriptionLet(Greenlet):
         gevent.Greenlet.__init__(self)
         self.subscription = subscription
         self.timeout = timeout
-        self._q = Queue()
+        self._ev = Event()
         self.checking = False
 
     def id(self):
         return self.subscription.get('id')
 
-    def stop():
-        self._q.put_nowait({'op':'stop'})
-    def wakeup():
-        self._q.put_nowait({'op':'wakeup'})
+    def wakeup(self):
+        self._ev.set()
         
     def match_subscription(self, doc):
         provcode = self.subscription.get('careProvisionCode')
@@ -200,8 +198,7 @@ class SubscriptionLet(Greenlet):
             lastUpdated = subscription['lastChecked_']
             endpoint = subscription.get('endpoint_') or 'http://example.org/'
             patientId = subscription['patientId']
-            patre = re.compile('^' + patientId+'\^')
-            query = {'patientId':patre, 'mimeType': 'text/xml', 'storedAt_':{'$gt': lastUpdated}}
+            query = {'patientId':patientId, 'mimeType': 'text/xml', 'storedAt_':{'$gt': lastUpdated}}
             careRecordTimePeriod = subscription.get('careRecordTimePeriod')
             # if careRecordTimePeriod is not None:
             #    query['creationTime'] = {'$gte':careRecordTimePeriod['low'], 
@@ -246,13 +243,16 @@ class SubscriptionLet(Greenlet):
                 finally:
                     self.checking = False
                 print "[%s] Going to sleep for %d secs ..." % (self.id(), self.timeout)
-                try:
-                    op = self._q.get(timeout=self.timeout)
-                except gevent.queue.Empty:
-                    op = {'op':'wakeup'}
-                if op['op'] == 'stop':
-                    break
-                # gevent.sleep(30)
+                op = self._ev.wait(timeout=self.timeout)
+                if op:
+                    self._ev.clear()
+                # try:
+                #     op = self._q.get(timeout=self.timeout)
+                # except gevent.queue.Empty:
+                #     op = {'op':'wakeup'}
+                # if op['op'] == 'stop':
+                #     break
+                ## gevent.sleep(30)
                 
 
 workers = {}
@@ -270,9 +270,9 @@ def monitor_new_subscriptions(timeout):
             if workers.has_key(sub.get('id')):
                 continue
             g = SubscriptionLet(sub, timeout)
-            g.start_later( 1 )
             workers[g.id()] = g
             workers_per_patient[sub['patientId']].append(g)
+            g.start()
         except:
             pass
 
@@ -333,7 +333,6 @@ def stats(env, start_response):
         ws = "\n".join(["<tr class='%s'>%s</tr>" % ('active' if i.checking else 'inactive',  subhtml(i.subscription))
                         for k, i in workers.items()])
         str = """<html><head>
-<meta http-equiv="refresh" content="5" > 
 <style type="text/css">
 tr.active td {
 	background-color: #CC9999; color: black;
@@ -359,10 +358,15 @@ tr.active td {
         start_response('404 Not Found', [('Content-Type', 'text/html')])
         return ['<h1>Not Found</h1>']
 
+def test_event():
+    if len(workers) > 0:
+        print "waking up..."
+        workers.items()[0][1].wakeup()
 
+    
 if __name__ == "__main__":
     s = wsgi.WSGIServer(('', 9081), stats)
     s.start()
-    gevent.spawn(schedule_all, 5*60)
+    gevent.spawn(schedule_all, 30*60)
     print 'Serving stats on 9081...'
     s.serve_forever()

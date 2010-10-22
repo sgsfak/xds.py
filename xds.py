@@ -34,8 +34,8 @@ import redis
 
 # Configuration!!
 MY_REPO_ID= "1.1.1.1.1"
-MONGO_HOST = ""
-REDIS_HOST = ''
+MONGO_HOST = "139.91.190.45"
+REDIS_HOST = '139.91.190.41'
 
 NS = {"soap":"http://www.w3.org/2003/05/soap-envelope", 
       "wsa":"http://www.w3.org/2005/08/addressing",
@@ -656,8 +656,24 @@ Some links to begin with:</p>
                         print "GOT SOAP:\n", data
                         yield handle_simple_soap_oper(data)
 
+# See http://goo.gl/NQZX
+PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
+                        ,'MEDCCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.5'
+                        , 'CONDLIST': '1.3.6.1.4.1.19376.1.5.3.1.4.5.1'
+                        , 'PROBLIST': '1.3.6.1.4.1.19376.1.5.3.1.4.5.2'
+                        , 'INTOLIST': '1.3.6.1.4.1.19376.1.5.3.1.4.5.3'
+                        , 'RISKLIST': '1.3.6.1.4.1.19376.1.5.3.1.4.5.1'
+                        , 'LABCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.13'
+                        , 'DICAT':'1.3.6.1.4.1.19376.1.5.3.1.4.13'
+                        , 'RXCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.7'
+                        , 'MEDLIST':'1.3.6.1.4.1.19376.1.5.3.1.4.7'
+                        , 'CURMEDLIST':'1.3.6.1.4.1.19376.1.5.3.1.4.7'
+                        , 'DISCHMEDLIST':'1.3.6.1.4.1.19376.1.5.3.1.4.7'
+                        , 'HISTMEDLIST':'1.3.6.1.4.1.19376.1.5.3.1.4.7'
+                        , 'IMMUCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.12'
+                        , 'PSVCCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.14' # XXX
+                        }
 # See <http://wiki.ihe.net/index.php?title=PCC-9>
-
 class PCCCM_Handler:
         def GET(self):
                 web.header('Content-type', 'text/html')
@@ -671,7 +687,6 @@ Some links to begin with:</p>
 <p>
  &copy; 2010 FORTH-ICS All rights reserved.
 """
-                pass
         def POST(self):
                 data = web.data()
                 print 'Got\n',data
@@ -682,47 +697,82 @@ Some links to begin with:</p>
                         endpoint = None
                 else:
                         endpoint = l[0].text
-                l = root.xpath('//hl7:QUPC_IN043100UV01', namespaces=NS)
-                if len(l) == 0:
-                        return 'Error, you need to send a PCC 09 xml message'
-                pcc9 = l[0]
-                l = pcc9.xpath('hl7:controlActProcess/hl7:queryByParameter/hl7:parameterList', namespaces=NS)
-                if len(l) == 0:
-                        return 'Error, you need to send a PCC 09 xml message (no parameter list!)'
-                m = pcc9.xpath('hl7:controlActProcess/hl7:id/@extension', namespaces=NS)
-                if len(m) == 0:
-                        return 'Error, you need to send a PCC 09 xml message (no query id in the controlAct!)'
-                queryId = m[0]
-                con = None
-                try:
-                        con = pymongo.Connection(host=MONGO_HOST)
-                        coll = con.xds.pcc
-                        for pl in l:
+                errors = []
+                while True:
+                        l = root.xpath('//hl7:QUPC_IN043100UV01', namespaces=NS)
+                        if len(l) == 0:
+                                errors.append({'code':'ILLEGAL', 'text': 'Error, you need to send a PCC 09 xml message'})
+                                break
+                        pcc9 = l[0]
+                        l = pcc9.xpath('hl7:controlActProcess/hl7:queryByParameter/hl7:parameterList', namespaces=NS)
+                        if len(l) == 0:
+                                errors.append({'code':'ILLEGAL',
+                                               'text': 'Error, you need to send a PCC 09 xml message (no parameter list!)'})
+                                break
+                        m = pcc9.xpath('hl7:controlActProcess/hl7:id/@extension', namespaces=NS)
+                        if len(m) == 0:
+                                errors.append({'code':'ILLEGAL',
+                                               'text': 'Error, you need to send a PCC 09 xml message (no query id in the controlAct!)'})
+                                break
+                        queryId = m[0]
+                        con = None
+                        try:
+                                pl = l[0]
                                 subscription = {'endpoint_': endpoint, 'lastChecked_':0, 'queryId':queryId}
                                 t = pl.xpath("hl7:careProvisionCode/hl7:value/@code", namespaces=NS)
-                                if len(t)>0:
-                                        subscription['careProvisionCode'] = t[0]
-                                subscription['patientId'] = pl.xpath("hl7:patientId/hl7:value/@extension", namespaces=NS)[0]
-
+                                if len(t)==0:
+                                        errors.append({'code':'ILLEGAL',
+                                                       'text': 'Error, you need to send a PCC 09 xml message (no careProvisionCode!)'})
+                                        break
+                                cpc = t[0]
+                                # See http://goo.gl/qdty
+                                if cpc not in PCODES_TEMPLATE_IDS:
+                                        errors.append({'code':'CODE_INVALID',
+                                                       'text': 'careProvisionCode'})
+                                        break
+                                subscription['careProvisionCode'] = cpc
+                                t = pl.xpath('hl7:patientId/hl7:value/@extension', namespaces=NS)
+                                if len(t) == 0:
+                                        errors.append({'code':'ILLEGAL',
+                                                       'text': 'No patientId given'})
+                                        break
+                                pid = t[0]                                                       
+                                pidroot = pl.xpath('hl7:patientId/hl7:value/@root', namespaces=NS)
+                                if len(pidroot) == 0: 
+                                        pidroot = ''
+                                else:
+                                        pidroot = pidroot[0]
+                                subscription['patientId'] = "%s^^^&%s&ISO" % (pid ,pidroot)
                                 t = pl.xpath('hl7:patientName/hl7:value/hl7:given', namespaces=NS)
                                 pat_fn = t[0].text if len(t)>0 else ''
                                 t = pl.xpath('hl7:patientName/hl7:value/hl7:family', namespaces=NS)
                                 pat_ln = t[0].text if len(t)>0 else ''
                                 subscription['patientName'] = {'given':pat_fn, 'family':pat_ln}
- 
+
                                 t = pl.xpath("hl7:maximumHistoryStatements/hl7:value/@value", namespaces=NS)
                                 subscription['maximumHistoryStatements'] = len(t)>0 and int(t[0]) or 50
                                 t = pl.xpath('hl7:careRecordTimePeriod/hl7:value', namespaces=NS)
-                                if len(t) <> 0:
+                                if len(t) != 0:
                                         low = t[0].xpath('hl7:low/@value', namespaces=NS)[0]
                                         high = t[0].xpath('hl7:high/@value', namespaces=NS)[0]
+                                        if low > high:
+                                                errors.append({'code':'FORMAT',
+                                                               'text': 'careRecordTimePeriod'})
+                                                break
                                         subscription['careRecordTimePeriod'] = {'low':low, 'high':high}
                                 t = pl.xpath('hl7:clinicalStatementTimePeriod/hl7:value', namespaces=NS)
-                                if len(t) <> 0:
+                                if len(t) != 0:
                                         low = t[0].xpath('hl7:low/@value', namespaces=NS)[0]
                                         high = t[0].xpath('hl7:high/@value', namespaces=NS)[0]
+                                        if low > high:
+                                                errors.append({'code':'FORMAT',
+                                                               'text': 'clinicalStatementTimePeriod'})
+                                                break
                                         subscription['clinicalStatementTimePeriod'] = {'low':low, 'high':high}
+                                con = pymongo.Connection(host=MONGO_HOST)
+                                coll = con.xds.pcc
                                 mongoId = coll.insert( subscription )
+                                print "New subscription %s stored in DB" % mongoId
                                 # 
                                 # Send notification to the UpdateBroker through Redis
                                 subscription['id'] = str(mongoId)
@@ -730,32 +780,51 @@ Some links to begin with:</p>
                                 key = 'xds:pcc-cm:new-subscr'
                                 r = redis.Redis(host=REDIS_HOST)
                                 r.rpush(key, json.dumps(subscription))
-                except Exception, ex:
-                        print "Unexpected error:", str(ex)
-                finally:
-                        if con is not None:
-                                con.disconnect()
+                                print "New subscription %s pushed to UB" % mongoId
+                        except Exception, ex:
+                                print "Unexpected error:", str(ex)
+                                errors.append({'code':'ISSUE',
+                                               'text': "Unexpected error:%s" % (ex,)})
+                        finally:
+                                if con is not None:
+                                        con.disconnect()
+                        break
                 web.header('Content-Type', 'application/soap+xml')
+                typecode = 'AR' if len(errors) > 0 else 'AA'
+                ackDetail = ''
+                if len(errors)>0:
+                        ackDetail = """
+                        <acknowledgementDetail typeCode='E'>
+                          <code code='%(code)s' displayName=' ' codeSystem='2.16.840.1.113883.5.1100'
+                                codeSystemName='AcknowledgementDetailCode'/>
+                          <text>%(text)</text>
+                          <location></location>
+                        </acknowledgementDetail>""" % errors[0]
+                ts = time.strftime('%Y%m%d%H%M%S',time.gmtime())
+                ackId = uuid.uuid4().hex
                 return """<s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope'>
  <s:Body>
-    <v3:MCCI_IN000002UV01 ITSVersion='XML_1.0' xmlns:v3='urn:hl7-org:v3'>
-	<v3:id/>
-	<v3:creationTime/>
-	<v3:interactionId/>
-	<v3:processingCode/>
-	<v3:processingModeCode/>
-	<v3:acceptAckCode/>
-	<v3:receiver typeCode='RCV'>
-		<v3:device classCode='DEV' determinerCode='INSTANCE'>
-			<v3:id/>
-		</v3:device>
-	</v3:receiver>
-	<v3:sender typeCode='RCV'>
-		<v3:device classCode='DEV' determinerCode='INSTANCE'>
-			<v3:id/>
-		</v3:device>
-	</v3:sender>
-</v3:MCCI_IN000002UV01></s:Body></s:Envelope>"""
+    <MCCI_IN000002UV01 ITSVersion='XML_1.0' xmlns='urn:hl7-org:v3'>
+	<id root='' extension='%s'/>
+	<creationTime value='%s'/>
+        <interactionId extension='MCCI_IN000002UV01' root='2.16.840.1.113883.5'/>
+        <processingModeCode code='T'/> <!-- T means current processing -->
+	<acceptAckCode code='NE'/>
+	<receiver typeCode='RCV'>
+		<device classCode='DEV' determinerCode='INSTANCE'>
+			<id/>
+		</device>
+	</receiver>
+	<sender typeCode='RCV'>
+		<device classCode='DEV' determinerCode='INSTANCE'>
+			<id/>
+		</device>
+	</sender>
+        <acknowledgement typeCode='%s'>
+          %s
+        </acknowledgement>
+   </MCCI_IN000002UV01>
+</s:Body></s:Envelope>""" % (ackId, ts, typecode, ackDetail)
 
 
 urls = ("/xdsref/.*", "test",
