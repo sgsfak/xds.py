@@ -6,20 +6,22 @@ The Repository is actually the filesystem (the static directory)
 while the Registry stores the documents and submission sets metadata
 in a MongoDB json database server.
 
-You probably need to checnge some Configuration variables you can
+You probably need to change some Configuration variables you can
 find below...
 
 ---8<---
 
 Requires:
-  * web.py (http://webpy.org)
+  * cherrypy (http://www.cherrypy.org/)
   * lxml (http://codespeak.net/lxml/)
   * pymongo -- Python driver for MongoDB <http://www.mongodb.org>
 """
 __author__ = "Stelios Sfakianakis <ssfak@ics.forth.gr>"
 
-import web
+import cherrypy
+# import web
 import email
+import email.parser
 import uuid
 from lxml import etree
 import pymongo
@@ -279,6 +281,7 @@ def parse_provide_and_register(xml):
         # record the current timestamp
         now = time.time()
         savdir = os.sep.join(["%02d" % i for i in time.gmtime(now)[:3]])+os.sep
+        savdirURI = "/".join(["%02d" % i for i in time.gmtime(now)[:3]])+"/"
         cl = xml.xpath("//lcm:SubmitObjectsRequest/rim:RegistryObjectList/rim:Classification[@classificationNode='%s']"%SSET_CLASS_NODE, 
                        namespaces=NS)[0]
         sId = cl.get("classifiedObject")
@@ -344,8 +347,9 @@ def parse_provide_and_register(xml):
                 docen["sourcePatientInfo"] = get_slot_multi(eo, "sourcePatientInfo")
                 docen["typeCode"] = get_classification(xml, TC_DOC_CLASS, dId)
                 docen["uniqueId"] = get_external_id(xml, UNIQID_DOC_SCHEME, dId)
-                docen["filename"] = savdir + dUUID[9:] + guess_suffix(docen['mimeType'])
-                docen["URI"] = "/xdsdocs/" + docen["filename"]
+                fn = dUUID[9:] + guess_suffix(docen['mimeType'])
+                docen["filename"] = savdir + fn
+                docen["URI"] = cherrypy.request.base + "/xdsdocs/" + savdirURI + fn
                 docen["inSubmissionUUID"] = sUUID
                 sset["docs"][dId] = docen
         return sset
@@ -435,6 +439,7 @@ def handle_mtom_oper(msg):
                         key = 'xds:pcc-cm:new-submission'
                         r = redis.Redis(host=REDIS_HOST)
                         r.rpush(key, json.dumps(sset))
+                        print "NEW SUBMISSION PUSHED TO UB"
                 finally:
                         con.disconnect()
                 RS = NS['rs']
@@ -506,7 +511,7 @@ def generate_mtom(xml_part, resAct, docs=[]):
         cid = make_msgid()
         boundary = "===============5s1t9e5l8i3o0s6r4u8l1e6s1.6.2.1.2.8=="
         mtom_ct = "multipart/related; action=\"%s\"; start-info=\"application/soap+xml\"; type=\"application/xop+xml\"; start=\"%s\";boundary=\"%s\"" % (resAct, cid, boundary)
-        web.header('Content-Type', mtom_ct)
+        cherrypy.response.headers['Content-type'] =  mtom_ct
         from cStringIO import StringIO
         out = StringIO()
         out.write("--%s\r\n" % boundary)
@@ -570,7 +575,7 @@ def handle_simple_soap_oper(inp):
         if sq not in [GETDOCUMENTS_SQ, GETDOCUMENTSANDASSOCIATIONS_SQ, 
                         GETSUBMISSIONSETANDCONTENTS_SQ, FINDDOCUMENTS_SQ,
                         FINDSUBMISSIONSETS_SQ]:
-                print "Sorry I don't support this (",sq,") type of query!"
+                raise cherrypy.HTTPError(message="Sorry I don't support this (%s) type of query!" % sq)
         else:
                 crit = {}
                 for st in q.xpath("rim:AdhocQuery/rim:Slot", namespaces=NS):
@@ -618,17 +623,19 @@ def handle_simple_soap_oper(inp):
                                         xml_document(rob, doc)
                 con.disconnect()
                 soap = build_soap_msg(resAct, wmesgid, xml)
-                web.header('Content-Type', 'application/soap+xml')
-                return etree.tostring(soap, pretty_print=True, 
-                                      encoding='UTF-8',
-                                      #encoding='ISO-8859-1',
-                                      xml_declaration=True)
-        return "satisfied?"
+                response = etree.tostring(soap, pretty_print=True, 
+                                          encoding='UTF-8',
+                                          #encoding='ISO-8859-1',
+                                          xml_declaration=True)
+                # print "SENDING",response
+                cherrypy.response.headers['Content-type'] = 'application/soap+xml'
+                return response
 
 class XDS_Handler:
+        exposed = True
         def GET(self):
-                web.header('Content-type', 'text/html')
-                return """<p>This is an <a href='http://www.ihe.net/'>IHE</a> XDS Registry and Repository server. 
+                cherrypy.response.headers['Content-type'] = 'text/html'
+                return ["""<p>This is an <a href='http://www.ihe.net/'>IHE</a> XDS Registry and Repository server. 
 Some links to begin with:</p>
 <ul>
 <li><a href='http://www.ihe.net/Technical_Framework/index.cfm#IT'>IT Infrastructure Technical Framework</a></li>
@@ -636,14 +643,26 @@ Some links to begin with:</p>
 </ul>
 <p>
  &copy; 2010 FORTH-ICS All rights reserved.
-"""
+"""]
         def POST(self):
-                # print "TE: "+web.ctx.env.get('HTTP_TRANSFER_ENCODING', 'none')
-                ct = web.ctx.env.get('CONTENT_TYPE')
+                print "TE: "+cherrypy.request.headers.get('TRANSFER-ENCODING', "")
+                headers = cherrypy.request.headers
+                reqfile = cherrypy.request.rfile
+                cl = int(headers.get('Content-Length', 0))
+                maxlen = 10 * 1024 * 1024
+                if cl > maxlen:
+                        raise cherrypy.HTTPError("413 Request Entity Too Large")
+                ct = headers['Content-Type']
                 print "GOT Content-type:",ct
                 d = parse_content_type(ct)
-                data = web.data()
                 if d['content_type']=='multipart/related':
+                        if cl == 0:
+                                from ChunkedRFile import ChunkedRFile
+                                print 'OH no! reading chunked request!!'
+                                cl = maxlen
+                                reqfile = ChunkedRFile(reqfile, cl)
+                        data = reqfile.read(cl)
+                        reqfile.close()
                         with open('mtom.dat', 'wb') as fp:
                                 fp.write(data)
                         fp = email.parser.FeedParser()
@@ -653,6 +672,7 @@ Some links to begin with:</p>
                         for chunk in handle_mtom_oper(msg):
                                 yield chunk
                 else:
+                        data = reqfile.read(cl)
                         print "GOT SOAP:\n", data
                         yield handle_simple_soap_oper(data)
 
@@ -674,10 +694,11 @@ PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
                         , 'PSVCCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.14' # XXX
                         }
 # See <http://wiki.ihe.net/index.php?title=PCC-9>
-class PCCCM_Handler:
+class PCC9_Handler:
+        exposed = True
         def GET(self):
-                web.header('Content-type', 'text/html')
-                return """<p>This is an <a href='http://www.ihe.net/'>IHE</a> PCC-CM server 
+                cherrypy.response.headers['Content-Type'] = 'text/html'
+                return ["""<p>This is an <a href='http://www.ihe.net/'>IHE</a> PCC-CM server 
 accepting PCC-9 messages. 
 Some links to begin with:</p>
 <ul>
@@ -686,10 +707,10 @@ Some links to begin with:</p>
 </ul>
 <p>
  &copy; 2010 FORTH-ICS All rights reserved.
-"""
+"""]
         def POST(self):
-                data = web.data()
-                print 'Got\n',data
+                data = cherrypy.request.rfile.read()
+                print 'Got data\n',data
                 root = etree.fromstring(data)
                 l = root.xpath('/soap:Envelope/soap:Header/wsa:ReplyTo/wsa:Address', namespaces=NS)
                 if len(l) == 0:
@@ -789,7 +810,7 @@ Some links to begin with:</p>
                                 if con is not None:
                                         con.disconnect()
                         break
-                web.header('Content-Type', 'application/soap+xml')
+                cherrypy.response.headers['Content-Type'] = 'application/soap+xml'
                 typecode = 'AR' if len(errors) > 0 else 'AA'
                 ackDetail = ''
                 if len(errors)>0:
@@ -802,7 +823,7 @@ Some links to begin with:</p>
                         </acknowledgementDetail>""" % errors[0]
                 ts = time.strftime('%Y%m%d%H%M%S',time.gmtime())
                 ackId = uuid.uuid4().hex
-                return """<s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope'>
+                return ["""<s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope'>
  <s:Body>
     <MCCI_IN000002UV01 ITSVersion='XML_1.0' xmlns='urn:hl7-org:v3'>
 	<id root='' extension='%s'/>
@@ -824,18 +845,67 @@ Some links to begin with:</p>
           %s
         </acknowledgement>
    </MCCI_IN000002UV01>
-</s:Body></s:Envelope>""" % (ackId, ts, typecode, ackDetail)
+</s:Body></s:Envelope>""" % (ackId, ts, typecode, ackDetail)]
 
 
-urls = ("/xdsref/.*", "test",
-        "/pcc/.*", "PCCCM_Handler",
-        "/.*", "XDS_Handler")
-app = web.application(urls, globals())
-
-class test:
+class EHRInteropApp:
+        exposed = True
+        pcc = PCC9_Handler()
+        xds = XDS_Handler()
         def GET(self):
-                u = web.ctx.env.get('PATH_INFO')
-                raise web.redirect('/static'+u[u.rfind('/'):])
+                base = cherrypy.request.base
+                return [
+ """<html>
+ <head><title>iCARDEA EHR interoperability Framework </title></head>
+ <body>
+ <h1>iCARDEA EHR interoperability Framework</h1>
+ We offer the following services:
+ <ul>
 
+ <li><a href="xds/">%s/xds/</a>: Here you POST your
+ <a href='http://wiki.ihe.net/index.php?title=XDS.b'>XDS.b</a> messages. We implement
+ both the XDS Registry and Repository functionality</li>
+ 
+ <li><a href="pcc/">%s/pcc/</a>: Here you POST your
+ <a href='http://wiki.ihe.net/index.php?title=PCC-9'>PCC-9</a> messages to subscribe
+ to a patients clinical data updates.</li>
+
+ </ul><p>
+ &copy; 2010 FORTH-ICS All rights reserved.
+ </body></html>""" % (base, base)]
+
+# cherrypy needs an absolute path when dealing wwith static data
+current_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "")
+print "curdir=%s" % current_dir
+
+conf = {
+        '/': {
+                'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
+                'tools.staticdir.root': current_dir
+        },
+        '/xdsdocs': {
+                'tools.staticdir.on' : True,
+                'tools.staticdir.root': current_dir,
+                'tools.staticdir.dir' : 'static'
+        },
+        '/xdsref': {
+                'tools.staticdir.on' : True,
+                'tools.staticdir.root':  os.path.join(current_dir, "static"),
+                'tools.staticdir.dir' : 'xdsref'
+        }
+}
+
+cherrypy.config.update({'global':{
+        'server.socket_port': 9080,
+        'server.socket_host': '0.0.0.0',
+        'engine.autoreload_on' : False,
+        'log.screen': True
+        }})
+
+def _process_request_body_hook():
+        cherrypy.request.process_request_body = False
+
+cherrypy.request.hooks.attach('before_request_body', _process_request_body_hook)
+app = cherrypy.tree.mount(EHRInteropApp(), '/', config=conf)
 if __name__ == "__main__":
-    app.run()
+        cherrypy.quickstart(EHRInteropApp(), '/', config=conf)

@@ -1,10 +1,22 @@
 #!/usr/bin/python
 from __future__ import with_statement
+"""
+You probably need to change some Configuration variables you can
+find below...
+
+---8<---
+
+Requires:
+  * gevent
+  * lxml (http://codespeak.net/lxml/)
+  * pymongo -- Python driver for MongoDB <http://www.mongodb.org>
+  * redis
+"""
+__author__ = "Stelios Sfakianakis <ssfak@ics.forth.gr>"
 from gevent import monkey; monkey.patch_all()
 from gevent import wsgi
 from gevent import Greenlet
 import gevent
-# from gevent.queue import Queue
 from gevent.event import Event
 import pymongo
 from pymongo import objectid
@@ -210,21 +222,24 @@ class SubscriptionLet(Greenlet):
             print 'MONQ=', query
             crs = docsdb.find(query, fields=['filename', 'storedAt_'], 
                               sort=[('storedAt_', pymongo.ASCENDING)])
+            tm = None
             for d in crs:
                 print '-->', d['filename']
                 doc = None
-                with open('static/'+d['filename'], 'rb') as fp:
+                with open('static'+os.sep+d['filename'], 'rb') as fp:
                     doc = etree.parse(fp).getroot()
                 e = self.match_subscription(doc)
                 entries.extend(e)
-                subscription['lastChecked_'] = d['storedAt_']
+                tm = d['storedAt_']
+            print '[%s] Found' % (id,),entries
+            if len(entries) > 0:
+                send_pcc10(self.subscription, entries)
+            if tm:
+                subscription['lastChecked_'] = tm
                 moncon.xds.pcc.update({'_id':objectid.ObjectId(self.id())},
-                                      {"$set": {"lastChecked_": d['storedAt_']}})
+                                      {"$set": {"lastChecked_": tm}})
         finally:
             moncon.disconnect()
-        print '[%s] Found' % (id,),entries
-        if len(entries) > 0:
-            send_pcc10(self.subscription, entries)
         return entries
     def __str__(self):
         cpc = self.subscription.get('careProvisionCode')
@@ -281,6 +296,7 @@ def monitor_new_submissions():
     key = 'xds:pcc-cm:new-submission'
     while True:
         try:
+            print "* monitor_new_submissions bloking into redis"
             (_,s) = r.blpop(key)
             sub = json.loads(s)
             patId = sub['patientId']
