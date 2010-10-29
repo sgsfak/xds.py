@@ -7,10 +7,9 @@ find below...
 ---8<---
 
 Requires:
-  * gevent
+  * gevent (http://www.gevent.org/)
   * lxml (http://codespeak.net/lxml/)
   * pymongo -- Python driver for MongoDB <http://www.mongodb.org>
-  * redis
 """
 __author__ = "Stelios Sfakianakis <ssfak@ics.forth.gr>"
 from gevent import monkey; monkey.patch_all()
@@ -20,12 +19,12 @@ import gevent
 from gevent.event import Event
 import pymongo
 from pymongo import objectid
+import bson
 import os
 from lxml import etree
-import redis
 import sys
 import urllib2
-import simplejson as json
+import json
 import uuid
 
 # Configuration!!
@@ -165,14 +164,18 @@ def send_pcc10(subscription, entries):
 </soapenv:Envelope>""" % (uuid.uuid4().urn, xml)
     req.add_data(soap.encode('utf-8'))
     # print 'SENDING\n', soap
+    with open("pcc-10.xml", "wb") as log:
+        log.write(soap)
     try:
         fp = urllib2.urlopen(req)
         response = fp.read()
         print 'SUBMITTED AND GOT\n',response
-    except urllib2.URLError, ex:
+    except urllib2.HTTPError, ex:
         msg = ex.read()
         print "PCC10 Error: %s %s" % (ex.code, msg)
         raise ex
+    except urllib2.URLError, ex:
+        print "PCC10 Error: %s " % (ex.reason)
     except:
         print "PCC10 Unexpected error:", sys.exc_info()[0]
         raise
@@ -184,11 +187,16 @@ class SubscriptionLet(Greenlet):
         self.timeout = timeout
         self._ev = Event()
         self.checking = False
+        self.stopped = False
 
     def id(self):
         return self.subscription.get('id')
 
     def wakeup(self):
+        self._ev.set()
+        
+    def stop(self):
+        self.stopped = True
         self._ev.set()
         
     def match_subscription(self, doc):
@@ -202,7 +210,7 @@ class SubscriptionLet(Greenlet):
     def check_subscription(self):
         subscription = self.subscription
         id = self.id()
-        print '[%s] Now at subscr' % id, self.subscription
+        # print '[%s] Now at subscr' % id, self.subscription
         entries = []
         moncon = pymongo.Connection(MONGO_HOST)
         try:
@@ -219,7 +227,7 @@ class SubscriptionLet(Greenlet):
             # if clinicalStatementTimePeriod is not None:
             #    query['creationTime'] = {'$gte':clinicalStatementTimePeriod['low'], 
             #                             '$lte':clinicalStatementTimePeriod['high']}
-            print 'MONQ=', query
+            print '[%s] MONQ=%s' % (id, query)
             crs = docsdb.find(query, fields=['filename', 'storedAt_'], 
                               sort=[('storedAt_', pymongo.ASCENDING)])
             tm = None
@@ -231,7 +239,7 @@ class SubscriptionLet(Greenlet):
                 e = self.match_subscription(doc)
                 entries.extend(e)
                 tm = d['storedAt_']
-            print '[%s] Found' % (id,),entries
+            print "[%s] Entries Found: %d" % (id, len(entries))
             if len(entries) > 0:
                 send_pcc10(self.subscription, entries)
             if tm:
@@ -245,68 +253,78 @@ class SubscriptionLet(Greenlet):
         cpc = self.subscription.get('careProvisionCode')
         if cpc is None:
             cpc = ""
-        return """Subscription (%s)""" % self.subscription
+        return "[%s] Subscription (%s)" % (self.id(), self.subscription)
 
     def _run(self):
-            while True:
-                try:
-                    self.checking = True
-                    self.check_subscription()
-                except Exception, e:
-                    print 'Oh no! just got: '+str(e)
-                    raise
-                finally:
-                    self.checking = False
-                print "[%s] Going to sleep for %d secs ..." % (self.id(), self.timeout)
+        id = self.id()
+        print "[%s] SubscriptionLet starting.." % id
+        while True:
+            try:
+                self.checking = True
+                self.check_subscription()
+            except Exception, ex:
+                print "[%s] Oh no! just got: %s" % (id, ex)
+                raise
+            finally:
+                self.checking = False
+                print "[%s] Going to sleep for %d secs ..." % (id, self.timeout)
                 op = self._ev.wait(timeout=self.timeout)
                 if op:
                     self._ev.clear()
-                # try:
-                #     op = self._q.get(timeout=self.timeout)
-                # except gevent.queue.Empty:
-                #     op = {'op':'wakeup'}
-                # if op['op'] == 'stop':
-                #     break
-                ## gevent.sleep(30)
-                
+                    if self.stopped :
+                        break
 
 workers = {}
 from collections import defaultdict
 workers_per_patient = defaultdict(list)
 
-def monitor_new_subscriptions(timeout):
-    r = redis.Redis(host=REDIS_HOST)
-    key = 'xds:pcc-cm:new-subscr'
-    while True:
-        try:
-            (_,s) = r.blpop(key)
-            print 'Got New subscription!!', s
-            sub = json.loads(s)
-            if workers.has_key(sub.get('id')):
-                continue
-            g = SubscriptionLet(sub, timeout)
-            workers[g.id()] = g
-            workers_per_patient[sub['patientId']].append(g)
-            g.start()
-        except:
-            pass
+NOTIFY_PORT = 9082
+def handle_notification(conn, timeout):
+    bufsize = 4096
+    data = conn.recv(bufsize)
+    # BSON provides the length of the msg in int32 litle-endian
+    import struct
+    ln = struct.unpack("<i", data[:4])[0]
+    # print "len=%d expecting %s" % (len(data), ln)
+    while len(data) < ln:
+        data += conn.recv(bufsize)
+    conn.close()
+    msg = bson.BSON(data).decode()
+    sub = msg.get('payload', '')
+    op = msg.get('type', 'noop')
+    if op == 'subscription':
+        subid = sub['id']
+        print '****** Got New subscription:', sub
+        if workers.has_key(subid):
+            return
+        g = SubscriptionLet(sub, timeout)
+        workers[subid] = g
+        workers_per_patient[sub['patientId']].append(g)
+        g.start()
+    elif op == 'submission':
+        patId = sub['patientId']
+        print "****** Got New submission set for patient='%s'" % patId
+        for g in workers_per_patient.get(patId, []):
+            g.wakeup()
 
-def monitor_new_submissions():
-    r = redis.Redis(host=REDIS_HOST)
-    key = 'xds:pcc-cm:new-submission'
-    while True:
-        try:
-            print "* monitor_new_submissions bloking into redis"
-            (_,s) = r.blpop(key)
-            sub = json.loads(s)
-            patId = sub['patientId']
-            print "Got New submission set for patient='%s'" % patId
-            if not workers_per_patient.has_key(patId):
-                continue
-            for g in workers_per_patient[patId]:
-                g.wakeup()
-        except:
-            pass
+def listen_for_new_info(timeout):
+    from socket import socket, AF_INET, SOCK_STREAM
+    addr = ('localhost',NOTIFY_PORT)
+    sock = socket(AF_INET, SOCK_STREAM)
+    try:
+        sock.bind(addr)
+        sock.listen(5)
+    except socket.error, msg:
+        print "ERROR (listen_for_new_info): %s" % msg
+        return
+    # Receive messages
+    print "LISTENING on",NOTIFY_PORT,"(TCP) for new submissions and subscriptions"
+    while 1:
+	conn,addr = sock.accept()
+        gevent.spawn(handle_notification, conn, timeout)
+    # Close socket
+    sock.close()
+
 def schedule_all(timeout):
     """Create the worker threads for the currently available PCC-9 subscriptions"""
     print 'Registering workers per PCC-9 subscription...'
@@ -330,8 +348,7 @@ def schedule_all(timeout):
         moncon.disconnect()
         print 'Registering %d workers ended' % (len(workers),)
         # gevent.joinall(workers)
-    gevent.spawn(monitor_new_subscriptions, timeout)
-    gevent.spawn(monitor_new_submissions)
+    gevent.spawn(listen_for_new_info, timeout)
 
 def stats(env, start_response):
     import datetime

@@ -31,8 +31,9 @@ import base64
 import os
 import sys
 import tempfile
-import simplejson as json
-import redis
+import json
+import bson
+import socket
 
 # Configuration!!
 MY_REPO_ID= "1.1.1.1.1"
@@ -278,6 +279,7 @@ def get_slot_single(o, name):
         return None
 
 def parse_provide_and_register(xml):
+        # See also http://ihewiki.wustl.edu/wiki/index.php/Metadata_Patterns
         # record the current timestamp
         now = time.time()
         savdir = os.sep.join(["%02d" % i for i in time.gmtime(now)[:3]])+os.sep
@@ -436,9 +438,7 @@ def handle_mtom_oper(msg):
                         # 
                         sset['id'] = str(mongoId)
                         del sset['_id']
-                        key = 'xds:pcc-cm:new-submission'
-                        r = redis.Redis(host=REDIS_HOST)
-                        r.rpush(key, json.dumps(sset))
+                        send_notification('submission', sset)
                         print "NEW SUBMISSION PUSHED TO UB"
                 finally:
                         con.disconnect()
@@ -635,7 +635,8 @@ class XDS_Handler:
         exposed = True
         def GET(self):
                 cherrypy.response.headers['Content-type'] = 'text/html'
-                return ["""<p>This is an <a href='http://www.ihe.net/'>IHE</a> XDS Registry and Repository server. 
+                return ["""<p>This is an <a href='http://www.ihe.net/'>IHE</a>
+<a href='http://ihewiki.wustl.edu/wiki/index.php/XDS_Main_Page'>XDS</a> Registry and Repository server. 
 Some links to begin with:</p>
 <ul>
 <li><a href='http://www.ihe.net/Technical_Framework/index.cfm#IT'>IT Infrastructure Technical Framework</a></li>
@@ -798,9 +799,7 @@ Some links to begin with:</p>
                                 # Send notification to the UpdateBroker through Redis
                                 subscription['id'] = str(mongoId)
                                 del subscription['_id']
-                                key = 'xds:pcc-cm:new-subscr'
-                                r = redis.Redis(host=REDIS_HOST)
-                                r.rpush(key, json.dumps(subscription))
+                                send_notification('subscription', subscription)
                                 print "New subscription %s pushed to UB" % mongoId
                         except Exception, ex:
                                 print "Unexpected error:", str(ex)
@@ -847,15 +846,66 @@ Some links to begin with:</p>
    </MCCI_IN000002UV01>
 </s:Body></s:Envelope>""" % (ackId, ts, typecode, ackDetail)]
 
+class DocsHandler:
+        exposed = True
+        def GET(self, docid=None, cnt = None):
+                max = int(cnt) if cnt else 20
+                try:
+                        con = pymongo.Connection(MONGO_HOST)
+                        if not docid:
+                                crs = con.xds.docs.find(fields=['entryUUID','patientId'],
+                                                        sort=[('storedAt_', pymongo.DESCENDING)],
+                                                        limit=max)
+                                lis = "\n".join(["<li><a href='./%s'>%s</a> (patient:'<b>%s</b>')</li>"
+                                                 % (d['entryUUID'],d['entryUUID'], d.get('patientId', '') )
+                                                 for d in crs])
+                                return """<html><head><title>XDS repository: docs recently submitted</title></head>
+                                <body><h1>The last %s docs submitted</h1>
+                                <ul>%s</ul>
+                                </body>
+                                </html>""" % (max, lis)
+                        else:
+                                d = con.xds.docs.find_one({'entryUUID':docid})
+                                if not d:
+                                        cherrypy.notfound()
+                                from bson import json_util
+                                s = json.dumps(d, default=json_util.default, sort_keys=True, indent = 4)
+                                return """<html><head><title>XDS repository: docs recently submitted</title></head>
+                                <body><h1>Document %s</h1>
+                                <p><a href='%s'>contents</a> (%s)</p>
+                                <h3>Document metadata (raw)</h3>
+                                <pre>%s</pre>
+                                </body>
+                                </html>""" % (d['entryUUID'], d['URI'], d.get('mimeType', ''), s)
+                except Exception, ex:
+                        print "ERROR: %s" % (ex)
+                        raise cherrypy.HTTPError()
+                finally:
+                        if con:
+                                con.disconnect()
+
+NOTIFY_PORT = 9082
+def send_notification(type, sub):
+        from socket import socket, AF_INET,SOCK_STREAM
+        msg = {'type':type, 'payload': sub}
+        data = bson.BSON.encode(msg)
+        addr = ('localhost', NOTIFY_PORT)
+        sock = socket(AF_INET, SOCK_STREAM)
+        try:
+                sock.connect(addr)
+                sock.send(data)
+        except Exception, ex:
+                print "ERROR (send notification): %s" % ex
 
 class EHRInteropApp:
         exposed = True
         pcc = PCC9_Handler()
         xds = XDS_Handler()
+        docs = DocsHandler()
         def GET(self):
                 base = cherrypy.request.base
-                return [
- """<html>
+                host = socket.gethostbyname(socket.getfqdn())
+                return ["""<html>
  <head><title>iCARDEA EHR interoperability Framework </title></head>
  <body>
  <h1>iCARDEA EHR interoperability Framework</h1>
@@ -870,9 +920,16 @@ class EHRInteropApp:
  <a href='http://wiki.ihe.net/index.php?title=PCC-9'>PCC-9</a> messages to subscribe
  to a patients clinical data updates.</li>
 
- </ul><p>
+ </ul>
+ <p> Also for debugging purposes you can see:
+ <ul><li>The
+ <a href='%s:9081/'>current PCC-CM "subscriptions"</a></li>
+ <li>The
+ <a href='docs/'>last 20 documents submitted</a></li>
+ </ul>
+
  &copy; 2010 FORTH-ICS All rights reserved.
- </body></html>""" % (base, base)]
+ </body></html>""" % (base, base, cherrypy.request.scheme +"://" + host)]
 
 # cherrypy needs an absolute path when dealing wwith static data
 current_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "")
@@ -898,7 +955,7 @@ conf = {
 cherrypy.config.update({'global':{
         'server.socket_port': 9080,
         'server.socket_host': '0.0.0.0',
-        'engine.autoreload_on' : False,
+        'engine.autoreload_on' : True,
         'log.screen': True
         }})
 
