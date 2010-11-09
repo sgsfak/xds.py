@@ -710,7 +710,16 @@ Some links to begin with:</p>
  &copy; 2010 FORTH-ICS All rights reserved.
 """]
         def POST(self):
-                data = cherrypy.request.rfile.read()
+                reqfile = cherrypy.request.rfile
+                headers = cherrypy.request.headers
+                cl = int(headers.get('Content-Length', 0))
+                maxlen = 10 * 1024 * 1024
+                if cl == 0:
+                        from ChunkedRFile import ChunkedRFile
+                        print 'OH no! reading chunked request!!'
+                        cl = maxlen
+                        reqfile = ChunkedRFile(reqfile, cl)
+                data = reqfile.read(cl)
                 print 'Got data\n',data
                 root = etree.fromstring(data)
                 l = root.xpath('/soap:Envelope/soap:Header/wsa:ReplyTo/wsa:Address', namespaces=NS)
@@ -849,7 +858,7 @@ Some links to begin with:</p>
 class DocsHandler:
         exposed = True
         def GET(self, docid=None, cnt = None):
-                max = int(cnt) if cnt else 20
+                max = int(cnt) if cnt else 50
                 try:
                         con = pymongo.Connection(MONGO_HOST)
                         if not docid:
@@ -903,8 +912,13 @@ class EHRInteropApp:
         xds = XDS_Handler()
         docs = DocsHandler()
         def GET(self):
+                headers = cherrypy.request.headers
+                myhost = socket.gethostbyname(socket.getfqdn())
                 base = cherrypy.request.base
-                host = socket.gethostbyname(socket.getfqdn())
+                if headers.has_key('X-Forwarded-Host'):
+                        host = headers['X-Forwarded-Host']
+                        proto = 'https' if headers.has_key('X-Forwarded-Ssl') else 'http'
+                        base = proto +'://' + host + '/icardea'                        
                 return ["""<html>
  <head><title>iCARDEA EHR interoperability Framework </title></head>
  <body>
@@ -925,11 +939,13 @@ class EHRInteropApp:
  <ul><li>The
  <a href='%s:9081/'>current PCC-CM "subscriptions"</a></li>
  <li>The
- <a href='docs/'>last 20 documents submitted</a></li>
+ <a href='docs/'>the most recent documents submitted</a></li>
+ <li>The
+ <a href='xdsdb/'>whole XDS database as stored in the filesystem</a></li>
  </ul>
 
  &copy; 2010 FORTH-ICS All rights reserved.
- </body></html>""" % (base, base, cherrypy.request.scheme +"://" + host)]
+ </body></html>""" % (base, base, cherrypy.request.scheme +'://' + myhost)]
 
 # cherrypy needs an absolute path when dealing wwith static data
 current_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "")

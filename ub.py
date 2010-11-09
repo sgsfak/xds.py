@@ -181,7 +181,7 @@ def send_pcc10(subscription, entries):
         raise
 
 class SubscriptionLet(Greenlet):
-    def __init__(self, subscription, timeout = 30):
+    def __init__(self, subscription, timeout = 30*60):
         gevent.Greenlet.__init__(self)
         self.subscription = subscription
         self.timeout = timeout
@@ -279,7 +279,7 @@ from collections import defaultdict
 workers_per_patient = defaultdict(list)
 
 NOTIFY_PORT = 9082
-def handle_notification(conn, timeout):
+def handle_notification(conn, addr):
     bufsize = 4096
     data = conn.recv(bufsize)
     # BSON provides the length of the msg in int32 litle-endian
@@ -297,7 +297,7 @@ def handle_notification(conn, timeout):
         print '****** Got New subscription:', sub
         if workers.has_key(subid):
             return
-        g = SubscriptionLet(sub, timeout)
+        g = SubscriptionLet(sub)
         workers[subid] = g
         workers_per_patient[sub['patientId']].append(g)
         g.start()
@@ -307,23 +307,10 @@ def handle_notification(conn, timeout):
         for g in workers_per_patient.get(patId, []):
             g.wakeup()
 
-def listen_for_new_info(timeout):
-    from socket import socket, AF_INET, SOCK_STREAM
-    addr = ('localhost',NOTIFY_PORT)
-    sock = socket(AF_INET, SOCK_STREAM)
-    try:
-        sock.bind(addr)
-        sock.listen(5)
-    except socket.error, msg:
-        print "ERROR (listen_for_new_info): %s" % msg
-        return
-    # Receive messages
-    print "LISTENING on",NOTIFY_PORT,"(TCP) for new submissions and subscriptions"
-    while 1:
-	conn,addr = sock.accept()
-        gevent.spawn(handle_notification, conn, timeout)
-    # Close socket
-    sock.close()
+def listen_for_new_info():
+    from gevent.server import StreamServer
+    server = StreamServer(('127.0.0.1', NOTIFY_PORT), handle_notification)
+    server.start() # start accepting new connections
 
 def schedule_all(timeout):
     """Create the worker threads for the currently available PCC-9 subscriptions"""
@@ -348,7 +335,7 @@ def schedule_all(timeout):
         moncon.disconnect()
         print 'Registering %d workers ended' % (len(workers),)
         # gevent.joinall(workers)
-    gevent.spawn(listen_for_new_info, timeout)
+    listen_for_new_info()
 
 def stats(env, start_response):
     import datetime
