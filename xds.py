@@ -37,8 +37,7 @@ import socket
 
 # Configuration!!
 MY_REPO_ID= "1.1.1.1.1"
-MONGO_HOST = "139.91.190.45"
-REDIS_HOST = '139.91.190.41'
+MONGO_HOST = "localhost"
 
 NS = {"soap":"http://www.w3.org/2003/05/soap-envelope", 
       "wsa":"http://www.w3.org/2005/08/addressing",
@@ -374,7 +373,7 @@ def guess_suffix(ct):
 def parse_content_type(ct):
         s = "content_type="+ct
         v = [t.strip() for t in s.split(';')]
-        return dict([tuple(l.split('=')) for l in v])
+        return dict([tuple(l.split('=', 1)) for l in v])
 
 SUCCESS_RESULT_STATUS = "urn:oasis:names:tc:ebxml-regrep:ResponseStatusType:Success"
 FAILURE_RESULT_STATUS = "urn:oasis:names:tc:ebxml-regrep:ResponseStatusType:Failure"
