@@ -453,35 +453,42 @@ def handle_mtom_oper(msg):
                 docUids = [e.text for e in elems]
                 print docUids
                 toRetrieve = []
-                con = pymongo.Connection(host=MONGO_HOST)
-                from email.utils import make_msgid
-                for uid in docUids:
-                        doc = con.xds.docs.find_one({"uniqueId": uid}, {"filename":1, "mimeType":1})
-                        if not doc:
-                                print "Requested doc with uid ",uid, " was not found! (ignoring)"
-                        else:
-                                cid = make_msgid()
-                                toRetrieve.append({"uid":uid, 
-                                                   "fn":doc['filename'], 
-                                                   "cid":cid, 
-                                                   "mt":doc['mimeType']})
-                con.disconnect()
                 RS = NS['rs']
                 XDSB = NS['xdsb']
                 res = etree.Element("{%s}RetrieveDocumentSetResponse" % XDSB)
-                rr = etree.Element(res,"{%s}RegistryResponse" % RS)
-                rr.attrib['status'] = SUCCESS_RESULT_STATUS
-                for tr in toRetrieve:
-                        e = etree.Element(res,"{%s}DocumentResponse"%(XDSB,))
-                        e1 = etree.Element(e, "{%s}RepositoryUniqueId"%(XDSB,))
-                        e1.text = MY_REPO
-                        e2 = etree.Element(e, "{%s}DocumentUniqueId"%(XDSB,))
-                        e2.text = tr['uid']
-                        e3 = etree.Element(e, "{%s}mimeType"%(XDSB,))
-                        e3.text = tr['mt']
-                        d = etree.Element(e, "{%s}Document"%(XDSB,))
-                        x = etree.Element(d, "{%s}Include"%(NS['xop'],))
-                        x.attrib['href']="cid:"+tr['cid']
+                resultStatus = SUCCESS_RESULT_STATUS
+                con = pymongo.Connection(host=MONGO_HOST)
+                from email.utils import make_msgid
+                try:
+                        for uid in docUids:
+                                doc = con.xds.docs.find_one({"uniqueId": uid}, {"filename":1, "mimeType":1})
+                                if not doc:
+                                        print "Requested doc with uid ",uid, " was not found! (ignoring)"
+                                        resultStatus = FAILURE_RESULT_STATUS
+                                else:
+                                        cid = make_msgid()
+                                        toRetrieve.append({"uid":uid, 
+                                                           "fn":'static' + os.sep + doc['filename'], 
+                                                           "cid":cid, 
+                                                           "mt":doc['mimeType']})
+                        for tr in toRetrieve:
+                                e = etree.SubElement(res,"{%s}DocumentResponse"%(XDSB,))
+                                e1 = etree.SubElement(e, "{%s}RepositoryUniqueId"%(XDSB,))
+                                e1.text = MY_REPO_ID
+                                e2 = etree.SubElement(e, "{%s}DocumentUniqueId"%(XDSB,))
+                                e2.text = tr['uid']
+                                e3 = etree.SubElement(e, "{%s}mimeType"%(XDSB,))
+                                e3.text = tr['mt']
+                                d = etree.SubElement(e, "{%s}Document"%(XDSB,))
+                                x = etree.SubElement(d, "{%s}Include"%(NS['xop'],))
+                                x.attrib['href']="cid:"+tr['cid']
+                except Exception, ex:
+                        print "ERROR: %s" % ex
+                        resultStatus = FAILURE_RESULT_STATUS
+                finally:
+                        con.disconnect()
+                rr = etree.SubElement(res,"{%s}RegistryResponse" % RS)
+                rr.attrib['status'] = resultStatus
                 soapMsg = build_soap_msg(resAct, wmesgid, res)
                 ret = generate_mtom(soapMsg, resAct, toRetrieve)
                 #print ret
