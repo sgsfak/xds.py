@@ -20,5 +20,5 @@ Personal Health Record systems. I comprises the following components:
    patients' ids
 
 
-Please check the INSTALL.txt file for information on installing and
-running these components
+Please check the link:INSTALL.html[INSTALL] file for information on
+installing and running these components

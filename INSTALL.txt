@@ -10,7 +10,8 @@ Prerequisites
 
 
 * http://www.mongodb.org/[mongodb] is the database management system
-  (of the noSQL genre) used to store the EHR data
+  (of the http://en.wikipedia.org/wiki/NoSQL[noSQL] genre) used to
+  store the EHR data
 
 * http://www.python.org/getit/[Python]. You need to install Python
   version 2.6 or 2.7 which is the most current (in the 2.x branch --
