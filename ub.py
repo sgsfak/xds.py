@@ -84,7 +84,7 @@ def create_pcc10(subscription, entries):
   </receiver>
   <sender typeCode="SND">
     <device determinerCode='INSTANCE'>
-      <id/>
+      <id root="1" extension="EHR"/>
       <name/>
       <telecom value='1' />
       <manufacturerModelName/>
