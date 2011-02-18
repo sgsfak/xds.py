@@ -28,8 +28,7 @@ import json
 import uuid
 
 # Configuration!!
-MONGO_HOST = '139.91.190.45'
-REDIS_HOST = '139.91.190.41'
+MONGO_HOST = 'localhost'
 
 # See http://goo.gl/NQZX
 PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
@@ -46,7 +45,7 @@ PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
                         , 'DISCHMEDLIST':'1.3.6.1.4.1.19376.1.5.3.1.4.7'
                         , 'HISTMEDLIST':'1.3.6.1.4.1.19376.1.5.3.1.4.7'
                         , 'IMMUCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.12'
-                        , 'PSVCCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.14' # XXX
+                        , 'PSVCCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.19' # XXX
                         }
 
 def parsePid(patientId):
