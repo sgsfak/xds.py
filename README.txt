@@ -1,4 +1,3 @@
-# -*- Doc -*-
 The iCARDEA Interoperability Framework
 ======================================
 Stelios Sfakianakis <ssfak@ics.forth.gr>

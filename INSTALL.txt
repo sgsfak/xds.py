@@ -3,9 +3,11 @@ Installation and Configuration for the icardea Interop. Framework
 Stelios Sfakianakis <ssfak@ics.forth.gr>
 v0.4, February 2011
 
+WARNING: These are some rough notes.. Work in progress
+
 Prerequisites
 -------------
-WARNING: These are some rough notes.. Work in progress
+
 
 * http://www.mongodb.org/[mongodb] is the database management system
   (of the noSQL genre) used to store the EHR data
@@ -20,17 +22,15 @@ WARNING: These are some rough notes.. Work in progress
 
  .. http://pypi.python.org/pypi/pymongo/[pymongo] 
 
- .. http://lxml.de/installation.html[lxml] 
-
-NOTE: In Linux lxml requires libxml2 and libxslt to be properly
- installed so you 'd better install these with the package management
- tool of your Linux distribution (e.g. apt-get in Debian/Ubuntu) to
- look for packages like libxml2-dev or libxslt-devel if the build with
- the easy_install fails
-
+ .. http://lxml.de/installation.html[lxml] NOTE: In Linux lxml
+    requires libxml2 and libxslt to be properly installed so you 'd
+    better install these with the package management tool of your
+    Linux distribution (e.g. apt-get in Debian/Ubuntu) to look for
+    packages like libxml2-dev or libxslt-devel if the build with the
+    easy_install fails
 
  .. http://pypi.python.org/pypi/gevent[gevent] which in Linux (and
- other *nix systems) also requires the installation of libevent
+    other *nix systems) also requires the installation of libevent
 
 
 Configuration
@@ -41,7 +41,7 @@ Configuration
 
 * Change the configuration in the file config.ini in the "hl7" folder
 
-*...
+* ...
 
 Run
 ---

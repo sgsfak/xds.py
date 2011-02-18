@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="AsciiDoc 8.6.3">
+<title>Installation and Configuration for the icardea Interop. Framework</title>
+</head>
+<body>
+<h1>Installation and Configuration for the icardea Interop. Framework</h1>
+<p>
+<strong>Stelios Sfakianakis</strong><br>
+<tt>&lt;<a href="mailto:ssfak@ics.forth.gr">ssfak@ics.forth.gr</a>&gt;</tt><br>
+version 0.4,
+February 2011
+</p>
+<a name="preamble"></a>
+<table frame="void" cellpadding="8">
+<tr valign="top"><td><p><b><u>Warning</u></b></p></td>
+<td style="border-left: 1px solid silver;">These are some rough notes.. Work in progress</td></tr></table>
+<hr>
+<h2><a name="_prerequisites"></a>Prerequisites</h2>
+<ul>
+<li>
+<p>
+<a href="http://www.mongodb.org/">mongodb</a> is the database management system
+  (of the noSQL genre) used to store the EHR data
+</p>
+</li>
+<li>
+<p>
+<a href="http://www.python.org/getit/">Python</a>. You need to install Python
+  version 2.6 or 2.7 which is the most current (in the 2.x branch&#8201;&#8212;&#8201;  the code has not been tested with 3.x) at the time of this
+  writing. The python code requires some additional libraries:
+</p>
+<ol type="a">
+<li>
+<p>
+<a href="http://pypi.python.org/pypi/setuptools">EasyInstall</a> will make more
+    easy the installation of the additional libraries.
+</p>
+</li>
+<li>
+<p>
+<a href="http://pypi.python.org/pypi/pymongo/">pymongo</a>
+</p>
+</li>
+<li>
+<p>
+<a href="http://lxml.de/installation.html">lxml</a> NOTE: In Linux lxml
+    requires libxml2 and libxslt to be properly installed so you 'd
+    better install these with the package management tool of your
+    Linux distribution (e.g. apt-get in Debian/Ubuntu) to look for
+    packages like libxml2-dev or libxslt-devel if the build with the
+    easy_install fails
+</p>
+</li>
+<li>
+<p>
+<a href="http://pypi.python.org/pypi/gevent">gevent</a> which in Linux (and
+    other *nix systems) also requires the installation of libevent
+</p>
+</li>
+</ol>
+</li>
+</ul>
+<hr>
+<h2><a name="_configuration"></a>Configuration</h2>
+<ul>
+<li>
+<p>
+Change the line "MONGO_HOST=&#8230;" in ub.py and xds.py if mongodb is
+  installed in a different machine instead of localhost.
+</p>
+</li>
+<li>
+<p>
+Change the configuration in the file config.ini in the "hl7" folder
+</p>
+</li>
+<li>
+<p>
+&#8230;
+</p>
+</li>
+</ul>
+<hr>
+<h2><a name="_run"></a>Run</h2>
+<ul>
+<li>
+<p>
+If mongodb is not run as a service, start it&#8230;
+</p>
+</li>
+<li>
+<p>
+Start XDS by issuing (in a command line window):
+</p>
+<pre>python xds.py</pre>
+</li>
+<li>
+<p>
+Start Update Broker by issuing (in a command line window):
+</p>
+<pre>python ub.py</pre>
+</li>
+</ul>
+<p></p>
+<p></p>
+<hr><p><small>
+Version 0.4<br>
+Last updated 2011-02-18 17:40:47 GTB Standard Time
+</small></p>
+</body>
+</html>
