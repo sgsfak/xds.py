@@ -1,0 +1,69 @@
+# -*- Doc -*-
+Installation and Configuration for the icardea Interop. Framework
+=================================================================
+Stelios Sfakianakis <ssfak@ics.forth.gr>
+v0.4, February 2011
+
+WARNING: These are some rough notes.. Work in progress
+
+Prerequisites
+-------------
+
+* http://www.mongodb.org/[mongodb] is the database management system
+  (of the noSQL genre) used to store the EHR data
+
+* http://www.python.org/getit/[Python]. You need to install Python
+  version 2.6 or 2.7 which is the most current (in the 2.x branch --
+  the code has not been tested with 3.x) at the time of this
+  writing. The python code requires some additional libraries:
+
+ .. http://pypi.python.org/pypi/setuptools[EasyInstall] will make more
+    easy the installation of the additional libraries.
+
+ .. http://pypi.python.org/pypi/pymongo/[pymongo] 
+
+ .. http://lxml.de/installation.html[lxml] 
+ [NOTE]
+ ===============================
+
+ *NOTE*: In Linux lxml requires libxml2 and libxslt to be properly
+ installed so you 'd better install these with the package management
+ tool of your Linux distribution (e.g. apt-get in Debian/Ubuntu) to
+ look for packages like libxml2-dev or libxslt-devel if the build with
+ the easy_install fails
+
+ ===============================
+
+
+ .. http://pypi.python.org/pypi/gevent[gevent] which in Linux (and
+ other *nix systems) also requires the installation of libevent
+
+
+Configuration
+-------------
+
+* Change the line "MONGO_HOST=..." in ub.py and xds.py if mongodb is
+  installed in a different machine instead of localhost.
+
+* Change the configuration in the file config.ini in the "hl7" folder
+
+*...
+
+Run
+---
+
+* If mongodb is not run as a service, start it...
+
+* Start XDS by issuing (in a command line window):
+[source]
+----
+python xds.py
+----
+
+* Start Update Broker by issuing (in a command line window):
+[source]
+----
+python ub.py
+----
+
+...
