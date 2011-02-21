@@ -1,53 +1,109 @@
 Installation and Configuration for the icardea Interop. Framework
 =================================================================
-Stelios Sfakianakis <ssfak@ics.forth.gr>
-v0.4, February 2011
+:author: Stelios Sfakianakis
+:email:  ssfak@ics.forth.gr
+:revdate: February 2011
+:revnumber: 0.6
+:toc:
+//:icons:
+:data-uri:
+:lang: en
+:encoding: iso-8859-1
 
 WARNING: These are some rough notes.. Work in progress
 
 Prerequisites
 -------------
 
-
 * http://www.mongodb.org/[mongodb] is the database management system
   (of the http://en.wikipedia.org/wiki/NoSQL[noSQL] genre) used to
-  store the EHR data
+  store the EHR data. At the +tools_resources/python+ directory you
+  can find a zip file of the most recent stable version of mongoDb for
+  Windows 32bit. You can unzip it wherever you want but from now on I
+  will assume that the contents of this zip are unzip in a
+  _c:\mongodb_ folder.
 
 * http://www.python.org/getit/[Python]. You need to install Python
   version 2.6 or 2.7 which is the most current (in the 2.x branch --
   the code has not been tested with 3.x) at the time of this
-  writing. The python code requires some additional libraries:
+  writing. You can find the setup of the most recent Python version
+  (2.7.1, at the for time of this writing) for Windows 32bit in
+  the +tools_resources/python+ directory.
+
+* The python code requires some additional libraries:
 
  .. http://pypi.python.org/pypi/setuptools[EasyInstall] will make more
-    easy the installation of the additional libraries.
+    easy the installation of the additional libraries. You can find a
+    setup for Windows 32bit in +tools_resources/python+ directory.
 
- .. http://pypi.python.org/pypi/pymongo/[pymongo] 
-
- .. http://lxml.de/installation.html[lxml] NOTE: In Linux lxml
+ .. http://lxml.de/installation.html[lxml] You can find a setup for
+    Windows 32bit in +tools_resources/python+ directory. Alternatively
+    you can install it by issuing footnote:[NOTE: In Linux lxml
     requires libxml2 and libxslt to be properly installed so you 'd
     better install these with the package management tool of your
     Linux distribution (e.g. apt-get in Debian/Ubuntu) to look for
     packages like libxml2-dev or libxslt-devel if the build with the
-    easy_install fails
+    easy_install fails by issuing]
 
- .. http://pypi.python.org/pypi/gevent[gevent] which in Linux (and
-    other *nix systems) also requires the installation of libevent
+ easy_install lxml 
 
+ .. http://pypi.python.org/pypi/gevent[gevent] footnote:[In Linux (and
+    other *nix systems) it also requires the installation of
+    libevent.]  You can find a setup for each of these libs (greenlet
+    and gevent) for Windows 32bit in +tools_resources/python+
+    directory. Alternatively you can install them by issuing
+
+ easy_install greenlet
+ easy_install gevent
+
+ .. http://www.cherrypy.org/[cherrypy] by issuing
+
+ easy_install cherrypy
+
+ .. http://pypi.python.org/pypi/pymongo/[pymongo] by issuing
+
+ easy_install bson
+ easy_install pymongo
 
 Configuration
 -------------
 
-* Change the line "MONGO_HOST=..." in ub.py and xds.py if mongodb is
+* Change the line "MONGO_HOST=..." in +ub.py+ and +xds.py+ if mongodb is
   installed in a different machine instead of localhost.
 
-* Change the configuration in the file config.ini in the "hl7" folder
+* Change the configuration in the file +config.ini+ in the +hl7+ folder
 
 * ...
 
 Run
 ---
 
-* If mongodb is not run as a service, start it...
+* First of all you have to launch the mongodb database
+  server. You have to launch a command prompt and +cd+ to the folder
+  where you have unzipped the distribution. There you can find a +bin+
+  subdirectory that contains various executable files. 
+
+ .. Create a +data+ subdirectory inside the +bin+ folder. All the
+    databases will be persisted there.
+
+ .. Launch (in the command line) the _mongod_ executable by issuing
+
+ mongod --dbpath data --directoryperdb
+
+ .. You 're ready!
+
+.Running MongoDB as Windows Service
+[TIP]
+===============================
+In Windows you can install MongoDB to run as a service:
+
+  mongod --dbpath <full path to the data folder> --logpath <full path to a log file> --directoryperdb --install
+
+You can then start it from the Windows Services settings
+application or by issuing
+
+ mongod --service
+===============================
 
 * Start XDS by issuing (in a command line window):
 

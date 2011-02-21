@@ -2,8 +2,8 @@
     "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
-<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
-<meta name="generator" content="AsciiDoc 8.6.3" />
+<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=iso-8859-1" />
+<meta name="generator" content="AsciiDoc 8.6.4" />
 <title>Installation and Configuration for the icardea Interop. Framework</title>
 <style type="text/css">
 /* Sans-serif font. */
@@ -397,7 +397,7 @@ div.toclevel4 {
 </style>
 <script type="text/javascript">
 /*<![CDATA[*/
-window.onload = function(){asciidoc.footnotes();}
+window.onload = function(){asciidoc.footnotes(); asciidoc.toc(2);}
 var asciidoc = {  // Namespace.
 
 /////////////////////////////////////////////////////////////////////
@@ -534,8 +534,12 @@ footnotes: function () {
 <h1>Installation and Configuration for the icardea Interop. Framework</h1>
 <span id="author">Stelios Sfakianakis</span><br />
 <span id="email"><tt>&lt;<a href="mailto:ssfak@ics.forth.gr">ssfak@ics.forth.gr</a>&gt;</tt></span><br />
-<span id="revnumber">version 0.4,</span>
+<span id="revnumber">version 0.6,</span>
 <span id="revdate">February 2011</span>
+<div id="toc">
+  <div id="toctitle">Table of Contents</div>
+  <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
+</div>
 </div>
 <div id="content">
 <div id="preamble">
@@ -558,42 +562,82 @@ footnotes: function () {
 <p>
 <a href="http://www.mongodb.org/">mongodb</a> is the database management system
   (of the <a href="http://en.wikipedia.org/wiki/NoSQL">noSQL</a> genre) used to
-  store the EHR data
+  store the EHR data. At the <tt>tools_resources/python</tt> directory you
+  can find a zip file of the most recent stable version of mongoDb for
+  Windows 32bit. You can unzip it wherever you want but from now on I
+  will assume that the contents of this zip are unzip in a
+  <em>c:\mongodb</em> folder.
 </p>
 </li>
 <li>
 <p>
 <a href="http://www.python.org/getit/">Python</a>. You need to install Python
   version 2.6 or 2.7 which is the most current (in the 2.x branch&#8201;&#8212;&#8201;  the code has not been tested with 3.x) at the time of this
-  writing. The python code requires some additional libraries:
+  writing. You can find the setup of the most recent Python version
+  (2.7.1, at the for time of this writing) for Windows 32bit in
+  the <tt>tools_resources/python</tt> directory.
+</p>
+</li>
+<li>
+<p>
+The python code requires some additional libraries:
 </p>
 <div class="olist loweralpha"><ol class="loweralpha">
 <li>
 <p>
 <a href="http://pypi.python.org/pypi/setuptools">EasyInstall</a> will make more
-    easy the installation of the additional libraries.
+    easy the installation of the additional libraries. You can find a
+    setup for Windows 32bit in <tt>tools_resources/python</tt> directory.
 </p>
 </li>
 <li>
 <p>
-<a href="http://pypi.python.org/pypi/pymongo/">pymongo</a>
-</p>
-</li>
-<li>
-<p>
-<a href="http://lxml.de/installation.html">lxml</a> NOTE: In Linux lxml
+<a href="http://lxml.de/installation.html">lxml</a> You can find a setup for
+    Windows 32bit in <tt>tools_resources/python</tt> directory. Alternatively
+    you can install it by issuing <span class="footnote"><br />[NOTE: In Linux lxml
     requires libxml2 and libxslt to be properly installed so you 'd
     better install these with the package management tool of your
     Linux distribution (e.g. apt-get in Debian/Ubuntu) to look for
     packages like libxml2-dev or libxslt-devel if the build with the
-    easy_install fails
+    easy_install fails by issuing]<br /></span>
 </p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>easy_install lxml</tt></pre>
+</div></div>
 </li>
 <li>
 <p>
-<a href="http://pypi.python.org/pypi/gevent">gevent</a> which in Linux (and
-    other *nix systems) also requires the installation of libevent
+<a href="http://pypi.python.org/pypi/gevent">gevent</a> <span class="footnote"><br />[In Linux (and
+    other *nix systems) it also requires the installation of
+    libevent.]<br /></span>  You can find a setup for each of these libs (greenlet
+    and gevent) for Windows 32bit in <tt>tools_resources/python</tt>
+    directory. Alternatively you can install them by issuing
 </p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>easy_install greenlet
+easy_install gevent</tt></pre>
+</div></div>
+</li>
+<li>
+<p>
+<a href="http://www.cherrypy.org/">cherrypy</a> by issuing
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>easy_install cherrypy</tt></pre>
+</div></div>
+</li>
+<li>
+<p>
+<a href="http://pypi.python.org/pypi/pymongo/">pymongo</a> by issuing
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>easy_install bson
+easy_install pymongo</tt></pre>
+</div></div>
 </li>
 </ol></div>
 </li>
@@ -606,13 +650,13 @@ footnotes: function () {
 <div class="ulist"><ul>
 <li>
 <p>
-Change the line "MONGO_HOST=&#8230;" in ub.py and xds.py if mongodb is
+Change the line "MONGO_HOST=&#8230;" in <tt>ub.py</tt> and <tt>xds.py</tt> if mongodb is
   installed in a different machine instead of localhost.
 </p>
 </li>
 <li>
 <p>
-Change the configuration in the file config.ini in the "hl7" folder
+Change the configuration in the file <tt>config.ini</tt> in the <tt>hl7</tt> folder
 </p>
 </li>
 <li>
@@ -629,9 +673,57 @@ Change the configuration in the file config.ini in the "hl7" folder
 <div class="ulist"><ul>
 <li>
 <p>
-If mongodb is not run as a service, start it&#8230;
+First of all you have to launch the mongodb database
+  server. You have to launch a command prompt and <tt>cd</tt> to the folder
+  where you have unzipped the distribution. There you can find a <tt>bin</tt>
+  subdirectory that contains various executable files.
+</p>
+<div class="olist loweralpha"><ol class="loweralpha">
+<li>
+<p>
+Create a <tt>data</tt> subdirectory inside the <tt>bin</tt> folder. All the
+    databases will be persisted there.
 </p>
 </li>
+<li>
+<p>
+Launch (in the command line) the <em>mongod</em> executable by issuing
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>mongod --dbpath data --directoryperdb</tt></pre>
+</div></div>
+</li>
+<li>
+<p>
+You 're ready!
+</p>
+</li>
+</ol></div>
+</li>
+</ul></div>
+<div class="admonitionblock">
+<table><tr>
+<td class="icon">
+<div class="title">Tip</div>
+</td>
+<td class="content">
+<div class="title">Running MongoDB as Windows Service</div>
+<div class="paragraph"><p>In Windows you can install MongoDB to run as a service:</p></div>
+<div class="literalblock">
+<div class="content">
+<pre><tt>mongod --dbpath &lt;full path to the data folder&gt; --logpath &lt;full path to a log file&gt; --directoryperdb --install</tt></pre>
+</div></div>
+<div class="paragraph"><p>You can then start it from the Windows Services settings
+application or by issuing</p></div>
+<div class="literalblock">
+<div class="content">
+<pre><tt>mongod --service</tt></pre>
+</div></div>
+</td>
+</tr></table>
+</div>
+<div class="ulist"><ul>
 <li>
 <p>
 Start XDS by issuing (in a command line window):
@@ -657,8 +749,8 @@ Start Update Broker by issuing (in a command line window):
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Version 0.4<br />
-Last updated 2011-02-18 17:57:00 GTB Standard Time
+Version 0.6<br />
+Last updated 2011-02-21 16:03:14 GTB Standard Time
 </div>
 </div>
 </body>
