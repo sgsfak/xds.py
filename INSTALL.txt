@@ -17,11 +17,16 @@ Prerequisites
 
 * http://www.mongodb.org/[mongodb] is the database management system
   (of the http://en.wikipedia.org/wiki/NoSQL[noSQL] genre) used to
-  store the EHR data. At the +tools_resources/python+ directory you
-  can find a zip file of the most recent stable version of mongoDb for
-  Windows 32bit. You can unzip it wherever you want but from now on I
-  will assume that the contents of this zip are unzip in a
-  _c:\mongodb_ folder.
+  store the EHR data. At the +tools_resources+ directory you can find
+  a zip file of the most recent stable version of mongoDb for Windows
+  32bit. You can unzip it wherever you want but from now on I will
+  assume that the contents of this zip are unzip in a _c:\mongodb_
+  folder.
+
+CAUTION: As described http://blog.mongodb.org/post/137788967[here]
+         ''MongoDB uses memory-mapped files for data storage, so for
+         servers managing more than 2GB of data you will definitely
+         need the 64 bit version (and a 64 bit version of Windows).''
 
 * http://www.python.org/getit/[Python]. You need to install Python
   version 2.6 or 2.7 which is the most current (in the 2.x branch --
@@ -95,9 +100,11 @@ Run
 .Running MongoDB as Windows Service
 [TIP]
 ===============================
-In Windows you can install MongoDB to run as a service:
+In Windows you can
+http://www.mongodb.org/display/DOCS/Windows+Service[install MongoDB to
+run as a service]:
 
-  mongod --dbpath <full path to the data folder> --logpath <full path to a log file> --directoryperdb --install
+  mongod --dbpath <full path to the data folder> --logpath <full path to a log file> --logappend --directoryperdb --install
 
 You can then start it from the Windows Services settings
 application or by issuing

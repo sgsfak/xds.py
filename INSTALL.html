@@ -562,13 +562,26 @@ footnotes: function () {
 <p>
 <a href="http://www.mongodb.org/">mongodb</a> is the database management system
   (of the <a href="http://en.wikipedia.org/wiki/NoSQL">noSQL</a> genre) used to
-  store the EHR data. At the <tt>tools_resources/python</tt> directory you
-  can find a zip file of the most recent stable version of mongoDb for
-  Windows 32bit. You can unzip it wherever you want but from now on I
-  will assume that the contents of this zip are unzip in a
-  <em>c:\mongodb</em> folder.
+  store the EHR data. At the <tt>tools_resources</tt> directory you can find
+  a zip file of the most recent stable version of mongoDb for Windows
+  32bit. You can unzip it wherever you want but from now on I will
+  assume that the contents of this zip are unzip in a <em>c:\mongodb</em>
+  folder.
 </p>
 </li>
+</ul></div>
+<div class="admonitionblock">
+<table><tr>
+<td class="icon">
+<div class="title">Caution</div>
+</td>
+<td class="content">As described <a href="http://blog.mongodb.org/post/137788967">here</a>
+         <em>'MongoDB uses memory-mapped files for data storage, so for
+         servers managing more than 2GB of data you will definitely
+         need the 64 bit version (and a 64 bit version of Windows).</em>'</td>
+</tr></table>
+</div>
+<div class="ulist"><ul>
 <li>
 <p>
 <a href="http://www.python.org/getit/">Python</a>. You need to install Python
@@ -709,10 +722,12 @@ You 're ready!
 </td>
 <td class="content">
 <div class="title">Running MongoDB as Windows Service</div>
-<div class="paragraph"><p>In Windows you can install MongoDB to run as a service:</p></div>
+<div class="paragraph"><p>In Windows you can
+<a href="http://www.mongodb.org/display/DOCS/Windows+Service">install MongoDB to
+run as a service</a>:</p></div>
 <div class="literalblock">
 <div class="content">
-<pre><tt>mongod --dbpath &lt;full path to the data folder&gt; --logpath &lt;full path to a log file&gt; --directoryperdb --install</tt></pre>
+<pre><tt>mongod --dbpath &lt;full path to the data folder&gt; --logpath &lt;full path to a log file&gt; --logappend --directoryperdb --install</tt></pre>
 </div></div>
 <div class="paragraph"><p>You can then start it from the Windows Services settings
 application or by issuing</p></div>
@@ -750,7 +765,7 @@ Start Update Broker by issuing (in a command line window):
 <div id="footer">
 <div id="footer-text">
 Version 0.6<br />
-Last updated 2011-02-21 16:03:14 GTB Standard Time
+Last updated 2011-02-21 16:30:10 GTB Standard Time
 </div>
 </div>
 </body>
