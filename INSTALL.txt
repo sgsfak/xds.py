@@ -67,7 +67,6 @@ CAUTION: As described http://blog.mongodb.org/post/137788967[here]
 
  .. http://pypi.python.org/pypi/pymongo/[pymongo] by issuing
 
- easy_install bson
  easy_install pymongo
 
 Configuration
