@@ -1,0 +1,139 @@
+Testing the XDS component of the icardea Interop. Framework
+===========================================================
+:author: Stelios Sfakianakis
+:email:  ssfak@ics.forth.gr
+:revdate: March 2011
+:revnumber: 0.5
+:toc:
+//:icons:
+:data-uri:
+:lang: en
+:encoding: iso-8859-1
+
+
+Introduction
+------------
+
+In order to test the XDS component of the iCARDEA platfrom it is
+assumed that you have made a proper installation of it as described in
+the link:INSTALL.html[INSTALL] file. We now assume that you have it
+running in the 'localhost' footnote:[In the following discussion all
+links etc. use the _localhost_ but of course you can use the host
+machine's IP address to access it from elsewhere]:
+
+* Launch (in the command line) the _mongod_ executable by issuing
+
+ mongod --dbpath data --directoryperdb
+
+* Start XDS by issuing (in a command line window):
+
+ python xds.py
+
+By default the MongoDB server (which is used as the database) listens
+on port 27017 and you can see its status at
+http://localhost:28017/. The XDS server itself listens on port 9080 so
+at http://localhost:9080/ you can get some information about the
+functionality, the endpoints etc.
+
+Using the XDS Toolkit GUI
+-------------------------
+
+In order to test the isntallation and part of the functionality of the
+XDS server, the
+http://ihewiki.wustl.edu/wiki/index.php/XDS_Main_Page#XDS_Toolkit_GUI[Graphical
+XDS Toolkit] can be used. This is a _war_ that it should be copied
+into the webapps directory of a local servlet container
+(e.g. Tomcat). You can find it at _tools_resources_ folder of the
+iCARDEA SVN repository (the current version is 2.135).
+
+After you copy it in the _webapps_ folder of the Tomcat installation
+and start the container (in port 8080, I presume), you can access it at
+http://localhost:8080/xdstools2.135/Xdstools2.html
+
+CAUTION: In my first attempt to use the XDS Toolkit GUI I used a
+Tomcat container that was installed in the +C:\Program
+Files\Apache...+ folder, and I was getting validation errors on the
+tests because it seems that the toolkit was not able to handle 'space'
+characters in the installation folder when it was looking for some XML
+schema files. When I installed Tomcat (and the Toolkit) in a
++D:\apache-tomcat\...+ (i.e. in a folder with no spaces in its name)
+everything worked fine.
+
+Configuration of the XDS Toolkit GUI
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+See also http://localhost:8080/xdstools2.135/doc/install.html
+
+NOTE: The GUI is heavily javascript based and whenever (well, almost)
+      you click on a link, a new tab is opened inside the web page. In
+      the new tab there's a *[close]* button/link to close the
+      currently visible tab
+
+* Choose the *[Toolkit Configuration]* from the top of the
+  window. Launching this window requires the admin password. By
+  default the password is +easy+ and you can leave it as is. 
+
+* Enter a new password (or leave the same: +easy+) and a location for your
+  actors.xml file (in the 'External_Cache' field) footnote:[By default
+  the Toolkit has a Unix/Linux-type folder name. If you are in
+  Windows change it to something like +D:\iCARDEA\xdstools2+]
+
+* *Save* the configuration and *[close]* the tab.
+
+Now in the *Home* tab and in the *Tools* column you can find a
+*Site/Actor Configuration* link that when pressed a new tab called
+"ActorConfig" is opened. In this new tab select the *local* Site and
+then add the +http://localhost:9080/xds/+ endpoint in the *non-TLS Endpoints*
+column of the following rows:
+
+* *Registry* section, in the _Stored Query_ row
+
+* *Repository* section, in the _Retrieve_ and _Provide and Register_ rows
+
+*Save Changes* and then *[close]* the tab.
+
+Uploading some data to the XDS server 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Back in the *Home* tab and in the *Tools* column you can find a
+*Repository Test Data* link that when pressed a new tab called
+"Repository Testdata" is opened.
+
+* In the *Patient ID* field add something like
+  +09e5441588d5422^^^&1.3.6.1.4.1.21367.2005.3.7&ISO+
+
+* In the *Select Test Data Set* choose the 'SingleDocument' (2nd
+  choice)
+
+* Enable the 'local' site
+
+* Disable 'TLS'
+
+* Press *Run*
+
+If everything goes all right you will see a 'Status: Successs'
+message. You can also go to the http://localhost:9080/docs/ to see
+that a new document has been added to the XDS repository and by
+further clicking on it you will see its metadata or even the document
+itself. 
+
+
+
+Querying the XDS server
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Again in the *Home* tab and in the *Queries & Retrieves* column you
+can find a *Find Documents* link that when pressed a new tab
+called "FindDocuments" is opened.
+
+* In the *Patient ID* add the id you had used when you uploaded the
+  data (e.g. +09e5441588d5422^^^&1.3.6.1.4.1.21367.2005.3.7&ISO+)
+
+* In the *Registry* row enable the *local* site
+
+* Disable *TLS*
+
+* Press *Run*
+
+If everything goes all right you will see a 'Status: Successs'
+message.

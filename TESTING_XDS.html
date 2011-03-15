@@ -2,9 +2,9 @@
     "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
-<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
+<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=iso-8859-1" />
 <meta name="generator" content="AsciiDoc 8.6.4" />
-<title>The iCARDEA Interoperability Framework</title>
+<title>Testing the XDS component of the icardea Interop. Framework</title>
 <style type="text/css">
 /* Sans-serif font. */
 h1, h2, h3, h4, h5, h6,
@@ -397,7 +397,7 @@ div.toclevel4 {
 </style>
 <script type="text/javascript">
 /*<![CDATA[*/
-window.onload = function(){asciidoc.footnotes();}
+window.onload = function(){asciidoc.footnotes(); asciidoc.toc(2);}
 var asciidoc = {  // Namespace.
 
 /////////////////////////////////////////////////////////////////////
@@ -531,53 +531,215 @@ footnotes: function () {
 </head>
 <body class="article">
 <div id="header">
-<h1>The iCARDEA Interoperability Framework</h1>
+<h1>Testing the XDS component of the icardea Interop. Framework</h1>
 <span id="author">Stelios Sfakianakis</span><br />
 <span id="email"><tt>&lt;<a href="mailto:ssfak@ics.forth.gr">ssfak@ics.forth.gr</a>&gt;</tt></span><br />
-<span id="revnumber">version 1.0,</span>
-<span id="revdate">February 2011</span>
+<span id="revnumber">version 0.5,</span>
+<span id="revdate">March 2011</span>
+<div id="toc">
+  <div id="toctitle">Table of Contents</div>
+  <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
+</div>
 </div>
 <div id="content">
-<div id="preamble">
+<div class="sect1">
+<h2 id="_introduction">Introduction</h2>
 <div class="sectionbody">
-<div class="paragraph"><p>This is the code for the iCARDEA Interoperability Framework aimed at
-providing the infrastructure for storing the patients' health record
-information extracted from the Hospital Information Systems and the
-Personal Health Record systems. It comprises the following components:</p></div>
+<div class="paragraph"><p>In order to test the XDS component of the iCARDEA platfrom it is
+assumed that you have made a proper installation of it as described in
+the <a href="INSTALL.html">INSTALL</a> file. We now assume that you have it
+running in the <em>localhost</em> <span class="footnote"><br />[In the following discussion all
+links etc. use the <em>localhost</em> but of course you can use the host
+machine&#8217;s IP address to access it from elsewhere]<br /></span>:</p></div>
 <div class="ulist"><ul>
 <li>
 <p>
-An XDS combined registry and repository for storing medical
-   information in the form of CDA documents or other formats
-   (e.g. even images can be stored and indexed)
+Launch (in the command line) the <em>mongod</em> executable by issuing
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>mongod --dbpath data --directoryperdb</tt></pre>
+</div></div>
+</li>
+<li>
+<p>
+Start XDS by issuing (in a command line window):
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>python xds.py</tt></pre>
+</div></div>
+</li>
+</ul></div>
+<div class="paragraph"><p>By default the MongoDB server (which is used as the database) listens
+on port 27017 and you can see its status at
+<a href="http://localhost:28017/">http://localhost:28017/</a>. The XDS server itself listens on port 9080 so
+at <a href="http://localhost:9080/">http://localhost:9080/</a> you can get some information about the
+functionality, the endpoints etc.</p></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_using_the_xds_toolkit_gui">Using the XDS Toolkit GUI</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>In order to test the isntallation and part of the functionality of the
+XDS server, the
+<a href="http://ihewiki.wustl.edu/wiki/index.php/XDS_Main_Page#XDS_Toolkit_GUI">Graphical
+XDS Toolkit</a> can be used. This is a <em>war</em> that it should be copied
+into the webapps directory of a local servlet container
+(e.g. Tomcat). You can find it at <em>tools_resources</em> folder of the
+iCARDEA SVN repository (the current version is 2.135).</p></div>
+<div class="paragraph"><p>After you copy it in the <em>webapps</em> folder of the Tomcat installation
+and start the container (in port 8080, I presume), you can access it at
+<a href="http://localhost:8080/xdstools2.135/Xdstools2.html">http://localhost:8080/xdstools2.135/Xdstools2.html</a></p></div>
+<div class="admonitionblock">
+<table><tr>
+<td class="icon">
+<div class="title">Caution</div>
+</td>
+<td class="content">In my first attempt to use the XDS Toolkit GUI I used a
+Tomcat container that was installed in the <tt>C:\Program
+Files\Apache&#8230;</tt> folder, and I was getting validation errors on the
+tests because it seems that the toolkit was not able to handle <em>space</em>
+characters in the installation folder when it was looking for some XML
+schema files. When I installed Tomcat (and the Toolkit) in a
+<tt>D:\apache-tomcat...</tt> (i.e. in a folder with no spaces in its name)
+everything worked fine.</td>
+</tr></table>
+</div>
+<div class="sect2">
+<h3 id="_configuration_of_the_xds_toolkit_gui">Configuration of the XDS Toolkit GUI</h3>
+<div class="paragraph"><p>See also <a href="http://localhost:8080/xdstools2.135/doc/install.html">http://localhost:8080/xdstools2.135/doc/install.html</a></p></div>
+<div class="admonitionblock">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">The GUI is heavily javascript based and whenever (well, almost)
+      you click on a link, a new tab is opened inside the web page. In
+      the new tab there&#8217;s a <strong>[close]</strong> button/link to close the
+      currently visible tab</td>
+</tr></table>
+</div>
+<div class="ulist"><ul>
+<li>
+<p>
+Choose the <strong>[Toolkit Configuration]</strong> from the top of the
+  window. Launching this window requires the admin password. By
+  default the password is <tt>easy</tt> and you can leave it as is.
 </p>
 </li>
 <li>
 <p>
-An "Update Broker" (ub) which is responsible for sending
-   notifications (PCC-10 messages) for changes in the patients health
-   records
+Enter a new password (or leave the same: <tt>easy</tt>) and a location for your
+  actors.xml file (in the <em>External_Cache</em> field) <span class="footnote"><br />[By default
+  the Toolkit has a Unix/Linux-type folder name. If you are in
+  Windows change it to something like <tt>D:\iCARDEA\xdstools2</tt>]<br /></span>
 </p>
 </li>
 <li>
 <p>
-A PIX/PDQ component for handling patient demographic data and
-   patients' ids
+<strong>Save</strong> the configuration and <strong>[close]</strong> the tab.
 </p>
 </li>
 </ul></div>
-<div class="paragraph"><p>Please check the <a href="INSTALL.html">INSTALL</a> file for information on
-installing and running these components. More information about the
-testing of the XDS server can be found in the
-<a href="INSTALL.html">TESTING_XDS</a> file.</p></div>
+<div class="paragraph"><p>Now in the <strong>Home</strong> tab and in the <strong>Tools</strong> column you can find a
+<strong>Site/Actor Configuration</strong> link that when pressed a new tab called
+"ActorConfig" is opened. In this new tab select the <strong>local</strong> Site and
+then add the <tt>http://localhost:9080/xds/</tt> endpoint in the <strong>non-TLS Endpoints</strong>
+column of the following rows:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+<strong>Registry</strong> section, in the <em>Stored Query</em> row
+</p>
+</li>
+<li>
+<p>
+<strong>Repository</strong> section, in the <em>Retrieve</em> and <em>Provide and Register</em> rows
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p><strong>Save Changes</strong> and then <strong>[close]</strong> the tab.</p></div>
+</div>
+<div class="sect2">
+<h3 id="_uploading_some_data_to_the_xds_server">Uploading some data to the XDS server</h3>
+<div class="paragraph"><p>Back in the <strong>Home</strong> tab and in the <strong>Tools</strong> column you can find a
+<strong>Repository Test Data</strong> link that when pressed a new tab called
+"Repository Testdata" is opened.</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+In the <strong>Patient ID</strong> field add something like
+  <tt>09e5441588d5422<sup>^</sup>&amp;1.3.6.1.4.1.21367.2005.3.7&amp;ISO</tt>
+</p>
+</li>
+<li>
+<p>
+In the <strong>Select Test Data Set</strong> choose the <em>SingleDocument</em> (2nd
+  choice)
+</p>
+</li>
+<li>
+<p>
+Enable the <em>local</em> site
+</p>
+</li>
+<li>
+<p>
+Disable <em>TLS</em>
+</p>
+</li>
+<li>
+<p>
+Press <strong>Run</strong>
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>If everything goes all right you will see a <em>Status: Successs</em>
+message. You can also go to the <a href="http://localhost:9080/docs/">http://localhost:9080/docs/</a> to see
+that a new document has been added to the XDS repository and by
+further clicking on it you will see its metadata or even the document
+itself.</p></div>
+</div>
+<div class="sect2">
+<h3 id="_querying_the_xds_server">Querying the XDS server</h3>
+<div class="paragraph"><p>Again in the <strong>Home</strong> tab and in the <strong>Queries &amp; Retrieves</strong> column you
+can find a <strong>Find Documents</strong> link that when pressed a new tab
+called "FindDocuments" is opened.</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+In the <strong>Patient ID</strong> add the id you had used when you uploaded the
+  data (e.g. <tt>09e5441588d5422<sup>^</sup>&amp;1.3.6.1.4.1.21367.2005.3.7&amp;ISO</tt>)
+</p>
+</li>
+<li>
+<p>
+In the <strong>Registry</strong> row enable the <strong>local</strong> site
+</p>
+</li>
+<li>
+<p>
+Disable <strong>TLS</strong>
+</p>
+</li>
+<li>
+<p>
+Press <strong>Run</strong>
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>If everything goes all right you will see a <em>Status: Successs</em>
+message.</p></div>
+</div>
 </div>
 </div>
 </div>
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Version 1.0<br />
-Last updated 2011-03-15 13:18:54 GTB Standard Time
+Version 0.5<br />
+Last updated 2011-03-15 15:01:52 GTB Standard Time
 </div>
 </div>
 </body>

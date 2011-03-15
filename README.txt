@@ -21,4 +21,6 @@ Personal Health Record systems. It comprises the following components:
 
 
 Please check the link:INSTALL.html[INSTALL] file for information on
-installing and running these components
+installing and running these components. More information about the
+testing of the XDS server can be found in the
+link:INSTALL.html[TESTING_XDS] file.

@@ -481,7 +481,7 @@ def handle_mtom_oper(msg):
                                 e3.text = tr['mt']
                                 d = etree.SubElement(e, "{%s}Document"%(XDSB,))
                                 x = etree.SubElement(d, "{%s}Include"%(NS['xop'],))
-                                x.attrib['href']="cid:"+tr['cid']
+                                x.attrib['href']="cid:"+tr['cid'].strip('<>')
                 except Exception, ex:
                         print "ERROR: %s" % ex
                         resultStatus = FAILURE_RESULT_STATUS
@@ -501,6 +501,7 @@ def build_soap_msg(action, relMsg, body):
         env = etree.Element(SOAP+"Envelope", nsmap=NS)
         hdr = etree.SubElement(env, SOAP+"Header")
         act = etree.SubElement(hdr, WSA+"Action")
+        act.set(SOAP+"mustUnderstand", "1")
         act.text = action
         rel = etree.SubElement(hdr, WSA+"RelatesTo")
         rel.text = relMsg
