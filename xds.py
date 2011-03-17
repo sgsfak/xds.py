@@ -36,7 +36,7 @@ import bson
 import socket
 
 # Configuration!!
-MY_REPO_ID= "1.1.1.1.1"
+MY_REPO_ID= '1.3.6.1.4.1.21367.2008.1.2.700'
 MONGO_HOST = "localhost"
 
 NS = {"soap":"http://www.w3.org/2003/05/soap-envelope", 
@@ -47,7 +47,9 @@ NS = {"soap":"http://www.w3.org/2003/05/soap-envelope",
       "rim":"urn:oasis:names:tc:ebxml-regrep:xsd:rim:3.0",
       "query":"urn:oasis:names:tc:ebxml-regrep:xsd:query:3.0",
       "xop":"http://www.w3.org/2004/08/xop/include",
-      'hl7':'urn:hl7-org:v3'}
+      'hl7':'urn:hl7-org:v3',
+      'xmlmime': 'http://www.w3.org/2004/11/xmlmime'
+      }
 
 # The actions for the supported XDS transactions
 PNR_XDS_OP = 'urn:ihe:iti:2007:ProvideAndRegisterDocumentSet-b'
@@ -124,7 +126,7 @@ def get_classification_multi(xml, scheme, obj):
 
 def xml_authors(xml, scheme, authrs, clObj):
         RIM = "{%s}" % NS['rim']
-        authors = type(authrs) == list and authrs or [authrs]
+        authors = authrs if type(authrs) == list else [authrs]
         for author in authors:
                 c  = etree.SubElement(xml, RIM+"Classification",
                                       attrib={'id': uuid.uuid4().urn, 
@@ -143,10 +145,12 @@ def xml_authors(xml, scheme, authrs, clObj):
 def xml_slot(xml, name, values):
         if values is None:
                 return
+        vs = values if type(values) == list else [values]
+        if len(vs) == 0:
+                return
         RIM = "{%s}" % NS['rim']
         s = etree.SubElement(xml, RIM+"Slot", attrib={'name':name})
         vl = etree.SubElement(s, RIM+"ValueList")
-        vs = type(values) == list and values or [values]
         for v in vs:
                 vt = etree.SubElement(vl, RIM+"Value")
                 vt.text = "%s"%v
@@ -155,7 +159,7 @@ def xml_classification(xml, scheme, codes, clObj):
         if codes is None: 
                 return
         RIM = "{%s}" % NS['rim']
-        cds = type(codes)==list and codes or [codes]
+        cds = codes if type(codes)==list else [codes]
         for coded in cds:
                 c  = etree.SubElement(xml, RIM+"Classification",
                                       attrib={'id': uuid.uuid4().urn,
@@ -167,6 +171,7 @@ def xml_classification(xml, scheme, codes, clObj):
                                               })
                 xml_slot(c, 'codingScheme', coded['codingScheme'])
                 n = etree.SubElement(c, RIM+"Name")
+                ls = etree.SubElement(n, RIM+"LocalizedString", attrib={'value':coded['code']})
                 d = etree.SubElement(c, RIM+"Description")
                 v = etree.SubElement(c, RIM+"VersionInfo", attrib={'versionName':'1.1'})
 
@@ -197,13 +202,14 @@ def xml_document(xml, doc):
         id = doc['entryUUID']
         c  = etree.SubElement(xml, RIM+"ExtrinsicObject",
                               attrib={'id': id,
+                                      'lid': id,
                                       'objectType':DOC_OBJTYPE,
                                       'status':'urn:oasis:names:tc:ebxml-regrep:StatusType:'+doc.get('availabilityStatus'),
                                       'mimeType':doc['mimeType'],
                                       'isOpaque':'false',
                                       'home':''
                                       })
-        add_slots(c, ['availabilityStatus', 'URI', 'creationTime', 'hash', 'languageCode', 
+        add_slots(c, ['URI', 'creationTime', 'hash', 'languageCode', 
                       'repositoryUniqueId','serviceStartTime','serviceStopTime'
                       ,'size', 'sourcePatientId', 'sourcePatientInfo'
                       ,'legalAuthenticator'])
@@ -212,7 +218,10 @@ def xml_document(xml, doc):
         v = etree.SubElement(c, RIM+"VersionInfo", attrib={'versionName':'1.1'})
         xml_authors(c, AUTHOR_DOC_CLASS, doc.get('author'), id) 
         xml_classification(c, CLCODE_DOC_CLASS, doc.get('classCode'), id)
-        xml_classification(c, EVCODE_DOC_CLASS, doc.get('formatCode'), id)
+        xml_classification(c, CONFCODE_DOC_CLASS, doc.get('confidCode'), id)
+        xml_classification(c, FMTCODE_DOC_CLASS, doc.get('formatCode'), id)
+        xml_classification(c, EVCODE_DOC_CLASS, doc.get('eventCodeList'), id)
+        xml_classification(c, TC_DOC_CLASS, doc.get('typeCode'), id)
         xml_classification(c, HCTC_DOC_CLASS, doc.get('healthcareFacilityTypeCode'), id)
         xml_classification(c, PRCTC_DOC_CLASS, doc.get('practiceSettingCode'), id)
         
@@ -227,6 +236,7 @@ def xml_submission(xml, doc):
         id = doc['entryUUID']
         c  = etree.SubElement(xml, RIM+"RegistryPackage",
                               attrib={'id': id,
+                                      'lid': id,
                                       'objectType':REGPACKGE_OBJTYPE,
                                       'status':'urn:oasis:names:tc:ebxml-regrep:StatusType:Approved'
                                       })
@@ -324,6 +334,8 @@ def parse_provide_and_register(xml):
                 if not dUUID.startswith("urn:uuid:"): dUUID = uuid.uuid4().urn
                 docen["entryUUID"] = dUUID
                 docen["eventCodeList"] = get_classification_multi(xml, EVCODE_DOC_CLASS, dId)
+                f = get_classification(xml, CONFCODE_DOC_CLASS, dId)
+                if f: docen["confidCode"] = f
                 f = get_classification(xml, FMTCODE_DOC_CLASS, dId)
                 if f: docen["formatCode"] = f
                 f = get_classification(xml, HCTC_DOC_CLASS, dId)
@@ -487,8 +499,9 @@ def handle_mtom_oper(msg):
                         resultStatus = FAILURE_RESULT_STATUS
                 finally:
                         con.disconnect()
-                rr = etree.SubElement(res,"{%s}RegistryResponse" % RS)
+                rr = etree.Element("{%s}RegistryResponse" % RS)
                 rr.attrib['status'] = resultStatus
+                res.insert(0, rr)
                 soapMsg = build_soap_msg(resAct, wmesgid, res)
                 ret = generate_mtom(soapMsg, resAct, toRetrieve)
                 #print ret
@@ -501,7 +514,7 @@ def build_soap_msg(action, relMsg, body):
         env = etree.Element(SOAP+"Envelope", nsmap=NS)
         hdr = etree.SubElement(env, SOAP+"Header")
         act = etree.SubElement(hdr, WSA+"Action")
-        act.set(SOAP+"mustUnderstand", "1")
+        act.set(SOAP+"mustUnderstand", "true")
         act.text = action
         rel = etree.SubElement(hdr, WSA+"RelatesTo")
         rel.text = relMsg
@@ -510,13 +523,13 @@ def build_soap_msg(action, relMsg, body):
         return env
         
 def generate_mtom(xml_part, resAct, docs=[]):
-        result = etree.tostring(xml_part, pretty_print=True, 
+        result = etree.tostring(xml_part, pretty_print=False, 
                                 encoding='UTF-8',
                                 #encoding='ISO-8859-1',
                                 xml_declaration=True)
         from email.utils import make_msgid
         cid = make_msgid()
-        boundary = "===============5s1t9e5l8i3o0s6r4u8l1e6s1.6.2.1.2.8=="
+        boundary = "5s1t9e5l8i3o0s6r4u8l1e6s1.6.2.1.2.8"
         mtom_ct = "multipart/related; action=\"%s\"; start-info=\"application/soap+xml\"; type=\"application/xop+xml\"; start=\"%s\";boundary=\"%s\"" % (resAct, cid, boundary)
         cherrypy.response.headers['Content-type'] =  mtom_ct
         from cStringIO import StringIO
@@ -526,6 +539,7 @@ def generate_mtom(xml_part, resAct, docs=[]):
         out.write('Content-Transfer-Encoding: binary\r\n')
         out.write("Content-ID: %s\r\n\r\n" % cid)
         out.write(result)
+        # with open('mtom_soap_out.xml', 'wb') as fout: fout.write(result)
         for d in docs:
                 out.write("\r\n--%s\r\n" % boundary)
                 data = out.getvalue()
@@ -581,7 +595,7 @@ def handle_simple_soap_oper(inp):
         sq = q.xpath("rim:AdhocQuery/@id", namespaces=NS)[0]
         if sq not in [GETDOCUMENTS_SQ, GETDOCUMENTSANDASSOCIATIONS_SQ, 
                         GETSUBMISSIONSETANDCONTENTS_SQ, FINDDOCUMENTS_SQ,
-                        FINDSUBMISSIONSETS_SQ]:
+                        GETSUBMISSIONSETS_SQ, FINDSUBMISSIONSETS_SQ]:
                 raise cherrypy.HTTPError(message="Sorry I don't support this (%s) type of query!" % sq)
         else:
                 crit = {}
@@ -597,7 +611,7 @@ def handle_simple_soap_oper(inp):
                                 else:
                                         crit[n].append(v.strip().strip("'"))
                 print "CRITERIA : ", crit
-                searchSubmissions = sq == GETSUBMISSIONSETANDCONTENTS_SQ or sq == FINDSUBMISSIONSETS_SQ
+                searchSubmissions = sq in [GETSUBMISSIONSETS_SQ, GETSUBMISSIONSETANDCONTENTS_SQ, FINDSUBMISSIONSETS_SQ]
                 monqry = {}
                 for k,v in crit.items():
                         if k.endswith('UniqueId'):
@@ -630,11 +644,11 @@ def handle_simple_soap_oper(inp):
                                         xml_document(rob, doc)
                 con.disconnect()
                 soap = build_soap_msg(resAct, wmesgid, xml)
-                response = etree.tostring(soap, pretty_print=True, 
+                response = etree.tostring(soap, pretty_print=False, 
                                           encoding='UTF-8',
                                           #encoding='ISO-8859-1',
                                           xml_declaration=True)
-                # print "SENDING",response
+                # with open("simple_soap_out.xml", "wb") as fout: fout.write(response)
                 cherrypy.response.headers['Content-type'] = 'application/soap+xml'
                 return response
 
@@ -681,7 +695,7 @@ Some links to begin with:</p>
                                 yield chunk
                 else:
                         data = reqfile.read(cl)
-                        print "GOT SOAP:\n", data
+                        # print "GOT SOAP:\n", data
                         yield handle_simple_soap_oper(data)
 
 # See http://goo.gl/NQZX
