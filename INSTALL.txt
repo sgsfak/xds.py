@@ -19,9 +19,7 @@ Prerequisites
   (of the http://en.wikipedia.org/wiki/NoSQL[noSQL] genre) used to
   store the EHR data. At the +tools_resources+ directory you can find
   a zip file of the most recent stable version of mongoDb for Windows
-  32bit. You can unzip it wherever you want but from now on I will
-  assume that the contents of this zip are unzip in a _c:\mongodb_
-  folder.
+  32bit.
 
 CAUTION: As described http://blog.mongodb.org/post/137788967[here]
          ''MongoDB uses memory-mapped files for data storage, so for
@@ -92,7 +90,7 @@ Run
 
  .. Launch (in the command line) the _mongod_ executable by issuing
 
- mongod --dbpath data --directoryperdb
+ mongod --dbpath data --journal --directoryperdb
 
  .. You 're ready!
 

@@ -564,9 +564,7 @@ footnotes: function () {
   (of the <a href="http://en.wikipedia.org/wiki/NoSQL">noSQL</a> genre) used to
   store the EHR data. At the <tt>tools_resources</tt> directory you can find
   a zip file of the most recent stable version of mongoDb for Windows
-  32bit. You can unzip it wherever you want but from now on I will
-  assume that the contents of this zip are unzip in a <em>c:\mongodb</em>
-  folder.
+  32bit.
 </p>
 </li>
 </ul></div>
@@ -703,7 +701,7 @@ Launch (in the command line) the <em>mongod</em> executable by issuing
 </p>
 <div class="literalblock">
 <div class="content">
-<pre><tt>mongod --dbpath data --directoryperdb</tt></pre>
+<pre><tt>mongod --dbpath data --journal --directoryperdb</tt></pre>
 </div></div>
 </li>
 <li>
@@ -764,7 +762,7 @@ Start Update Broker by issuing (in a command line window):
 <div id="footer">
 <div id="footer-text">
 Version 0.6<br />
-Last updated 2011-03-03 15:36:43 GTB Standard Time
+Last updated 2011-03-18 13:39:45 GTB Standard Time
 </div>
 </div>
 </body>
