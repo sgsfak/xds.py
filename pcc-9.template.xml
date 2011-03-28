@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope" xmlns="urn:hl7-org:v3">
+	<soapenv:Body>
+		<QUPC_IN043100UV01 xmlns="urn:hl7-org:v3" ITSVersion="XML_1.0">
+			<id extension="40cb349e-3b41-45c6-8c69-71861b7c4fc7"/>
+			<creationTime value="20101006102630"/>
+			<interactionId root="2.16.840.1.113883.5" extension="QUPC_IN043100UV"/>
+			<processingCode code="D"/>
+			<processingModeCode code="T"/>
+			<acceptAckCode code="AL"/>
+			<receiver typeCode="RCV">
+				<device determinerCode="INSTANCE">
+					<id/>
+					<name/>
+					<telecom value=" "/>
+					<manufacturerModelName/>
+					<softwareName/>
+				</device>
+			</receiver>
+			<respondTo typeCode="RSP">
+				<entityRsp determinerCode="INSTANCE">
+					<id/>
+					<name/>
+					<telecom value=" "/>
+				</entityRsp>
+			</respondTo>
+			<sender typeCode="SND">
+				<device determinerCode="INSTANCE">
+					<id/>
+					<name/>
+					<telecom value=" "/>
+					<manufacturerModelName/>
+					<softwareName/>
+				</device>
+			</sender>
+			<controlActProcess moodCode="RQO">
+				<id extension="40cb349e-3b41-45c6-8c69-71861b7c4fc7"/>
+				<code code="QUPC_TE043100UV"/>
+				<effectiveTime value=" "/>
+				<languageCode code=""/>
+				<authorOrPerformer/>
+				<queryByParameter>
+					<statusCode code="new"/>
+					<responseModalityCode code="R"/>
+					<responsePriorityCode code="D"/>
+					<initialQuantity value="1"/>
+					<initialQuantityCode codeSystem="2.16.840.1.113883" code="REPC_RM000100UV"/>
+					<parameterList>
+						<careProvisionCode>
+							<value code="$CARE_PROVISION_CODE$"/>
+						</careProvisionCode>
+						<careProvisionReason>
+							<value code="CIED Medical Care Plan"/>
+						</careProvisionReason><!--
+						<careRecordTimePeriod>
+							<value>
+								<low value="201001010000"/>
+								<high value="201005011000"/>
+							</value>
+						</careRecordTimePeriod>
+						<clinicalStatementTimePeriod>
+							<value>
+								<low value="201001010000"/>
+								<high value="201005011000"/>
+							</value>
+						</clinicalStatementTimePeriod> -->
+						<includeCarePlanAttachment>
+							<value value="true"/>
+						</includeCarePlanAttachment>
+						<maximumHistoryStatements>
+							<value value="30"/>
+						</maximumHistoryStatements>
+						<patientId>
+							<value extension="$PATIENT_ID$"/>
+						</patientId>
+					</parameterList>
+				</queryByParameter>
+			</controlActProcess>
+		</QUPC_IN043100UV01>
+	</soapenv:Body>
+</soapenv:Envelope>
