@@ -1,0 +1,168 @@
+Testing the PCC functionality of the icardea Interop. Framework
+===============================================================
+:author: Stelios Sfakianakis
+:email:  ssfak@ics.forth.gr
+:revdate: March 2011
+:revnumber: 0.5
+:toc:
+:data-uri:
+:lang: en
+:encoding: iso-8859-1
+
+== For the impatient..
+The PCC functionality is offered by two components of the iCARDEA
+interoperability framework: the XDS Registry/Repository and the so
+called "Update Broker":
+
+* The PCC-9 ("Care Manager Data Query") message should be sent (via a
+  SOAP formatted POST) to a specific endpoint (url) of the XDS
+  component. The endpoint is http://localhost:9080/pcc/ (where instead
+  of +localhost+ you can put the DNS name or IP address of the machine
+  that the XDS component runs on)
+
+* The PCC-10 ("Care Management Update") message is sent from the
+  Update Broker. That's the sole purpose of this Broker: to send
+  PCC-10 messages to the Care Managers that have been registered
+  by sending an initial PCC-09.
+
+
+So in conclusion you need to do the following:
+
+* Launch the _mongod_ executable by issuing (see also the
+  link:INSTALL.html[INSTALL] file)
+
+ mongod --dbpath data --journal --directoryperdb
+
+* Start XDS by issuing (in a command line window) :
+
+ python xds.py
+
+* Start Update Broker by issuing (in a command line window) :
+
+ python ub.py
+
+* Send your PCC-9 messages in +http://localhost:9080/pcc/+ and
+  wait.. When a new CDA XML document is registered with the XDS
+  registry that matches your PCC-9, the matching +entries+,
+  +observations+, etc. of this document will be send to you in a
+  nicely formatted PCC-10 message.
+
+== Implementation details
+
+NOTE: In this document we are using the terminology introduced by
+      PCC. In particular _Care Manager_ is the actor (service,
+      component) that sends the initial PCC-9 message while the
+      _Clinical Data Source_ is the the actor that replies with one or
+      more PCC-10 messages. In our case the role of the Clinical Data
+      Source is played by the XDS and Update Broker components.
+
+In essense PCC-9/PCC-10 is a kind of publish/subscribe messaging
+pattern : PCC-9 represents the initial subscription message with all
+the query parameters/constraints that will be applied to the current
+and the future contents of the XDS repository. The results will be
+sent through one or more separate PCC-10 messages. So the PCC-09
+messages carry query parameters that specify what information should
+be sent in the future PCC-10 footnote:[Quite astonishingly there's no
+unsubscribe message, i.e. subscriptions (PCC-09) live forever!]. You
+can see how the PCC-09 should be formatted
+http://wiki.ihe.net/index.php?title=PCC-9[here] but the most important
+information is the following:
+
+* The http://goo.gl/DduTH[patient id] that specifies the patient that
+  specifies the patient that the Care Manager is interested in. This
+  is required to be specified in the PCC-09 message and a single
+  patient id should be given. If the Care Manager is interested in two
+  or more patients it should sent that many seperate PCC-09
+  messages. There a shortcut if the Care Manager is interested in all
+  patients: in that case it can specify the '*' as the patient id.
+
+* The http://goo.gl/lSMg[care provision code] that specifies what kind
+  of clinical content the Care Manager wants to receive. There are a
+  couple of predefined provision codes like LABCAT (for the laboratory
+  results), MEDLIST (for all medications), etc. Also please note that
+  for each of the predefined provision codes there's a
+  (http://en.wikipedia.org/wiki/Continuity_of_Care_Document[CCD]
+  based?)  _template id_ (more on this below).
+
+In order for the PCC-10 to be sent in separate SOAP messages, the
+subscriber's (i.e CareManager's) endpoint URL should also be
+available. How this is to be provided is not described. In our
+implementation we expect this endpoint of the Care Manager to be
+specified as a
+http://en.wikipedia.org/wiki/WS-Addressing[WS-Addressing] "Reply"
+endpoint within SOAP header. An example PCC-9 wrapped in SOAP envelope
+with the expeced addressing information is the following:
+
+ <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+     	<s:Header>
+           <wsa:ReplyTo xmlns:wsa="http://www.w3.org/2005/08/addressing">
+                <wsa:Address>http://www.example.com:8080/pcc10</wsa:address>
+           </wsa:ReplyTo>
+        </s:Header>
+        <s:Body>
+		<QUPC_IN043100UV01 xmlns="urn:hl7-org:v3" ITSVersion="XML_1.0">
+                ...
+                </QUPC_IN043100UV01>
+	</s:Body>
+ </soapenv:Envelope>
+
+i.e. +http://www.example.com:8080/pcc10+ is the (fictional) url where
+the Clinical Data source (the Update Broker combo in our case) will
+send the subsequent PCC-10 messages.
+
+=== Matching PCC-9 requests to the clinical content
+
+How the Update Broker finds if it should send some PCC-10 messages in
+the Care Manager and what to put there? In our implementation these
+decisions are based on the _template ids_ of the care provision codes
+that were requested in the PCC-9 messages. In other words the Uodate
+Broker expects to find the +entries+ in the CDA documents of the XDS
+repository that have been "annotated" with the corresponding template
+id. 
+
+As an example the http://goo.gl/lSMg[COBSCAT provision code]
+representing "All Vital Signs" is linked to the
+http://goo.gl/JxTtB[1.3.6.1.4.1.19376.1.5.3.1.4.13.2] template
+id. Therefore if a new CDA document contains an +observation+ with
+that template id then it will be send in a new PCC-10 message. The
+following is such an observation:
+
+  <observation classCode="OBS" moodCode="EVN" negationInd=" false">
+		<templateId root='2.16.840.1.113883.10.20.1.31'/>
+                <templateId root='1.3.6.1.4.1.19376.1.5.3.1.4.13.2'/>
+	        <id root=' ' extension=' '/>
+		<code code='9279-1' codeSystem='2.16.840.1.113883.6.1' codeSystemName='LOINC'/>
+		<text><reference value='#xxx'/></text>
+	        <statusCode code='completed'/>
+		<effectiveTime value='201010101010'/>
+		<value xsi:type='PQ' value='60' unit='/min'/>
+  </observation>
+
+The Update Broker is notified by the XDS Registry when a new document
+is stored so that immediately all the "subscriptions" (PCC-9) are
+checked if match. 
+
+A final detail: in order for the Update Broker to check a document if
+it matches any of the existing subscriptions, the document should have
+been registered with +text/xml+ MIME type in the XDS Registry.
+
+== Appendix: Documents of interest
+
+The http://www.ihe.net/Technical_Framework/index.cfm#pcc[Patient Care
+Coordination (PCC)] Technical Framework defines an integration profile
+for the Cross Enterprise Sharing of Medical Summaries Integration
+Profile (XDS-MS), including Medical Summary Document Content (MS)
+specification, Emergency Department Referral (EDR), and Exchange of
+Personal Health Record Content (XPHR). The transactions that we are
+interested in can be found in the http://goo.gl/An2AE[Care Management
+Supplement for Trial Implementation] (Published 2008-08-26). This
+supplement defines Care Management Data Query (PCC-9, Section
+http://goo.gl/THI6W[3.9]) and V3 Care Management Update(PCC-10,
+Section http://goo.gl/iaJBv[3.10])
+
+There's also an online version at
+http://wiki.ihe.net/index.php?title=PCC_TF-2 that links to the
+different transactions in their own wiki pages:
+http://wiki.ihe.net/index.php?title=PCC-9[PCC-9],
+http://wiki.ihe.net/index.php?title=PCC-10[PCC-10]
+

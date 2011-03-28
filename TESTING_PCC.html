@@ -1,0 +1,756 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=iso-8859-1" />
+<meta name="generator" content="AsciiDoc 8.6.4" />
+<title>Testing the PCC functionality of the icardea Interop. Framework</title>
+<style type="text/css">
+/* Sans-serif font. */
+h1, h2, h3, h4, h5, h6,
+div.title, caption.title,
+thead, p.table.header,
+div#toctitle,
+span#author, span#revnumber, span#revdate, span#revremark,
+div#footer {
+  font-family: Arial,Helvetica,sans-serif;
+}
+
+/* Serif font. */
+div.sectionbody {
+  font-family: Georgia,"Times New Roman",Times,serif;
+}
+
+/* Monospace font. */
+tt {
+  font-size: inherit;
+}
+
+body {
+  margin: 1em 5% 1em 5%;
+}
+
+a {
+  color: blue;
+  text-decoration: underline;
+}
+a:visited {
+  color: fuchsia;
+}
+
+em {
+  font-style: italic;
+  color: navy;
+}
+
+strong {
+  font-weight: bold;
+  color: #083194;
+}
+
+tt {
+  font-size: inherit;
+  color: navy;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #527bbd;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+
+h1, h2, h3 {
+  border-bottom: 2px solid silver;
+}
+h2 {
+  padding-top: 0.5em;
+}
+h3 {
+  float: left;
+}
+h3 + * {
+  clear: left;
+}
+
+div.sectionbody {
+  margin-left: 0;
+}
+
+hr {
+  border: 1px solid silver;
+}
+
+p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+ul, ol, li > p {
+  margin-top: 0;
+}
+ul > li     { color: #aaa; }
+ul > li > * { color: black; }
+
+pre {
+  padding: 0;
+  margin: 0;
+}
+
+span#author {
+  color: #527bbd;
+  font-weight: bold;
+  font-size: 1.1em;
+}
+span#email {
+}
+span#revnumber, span#revdate, span#revremark {
+}
+
+div#footer {
+  font-size: small;
+  border-top: 2px solid silver;
+  padding-top: 0.5em;
+  margin-top: 4.0em;
+}
+div#footer-text {
+  float: left;
+  padding-bottom: 0.5em;
+}
+div#footer-badges {
+  float: right;
+  padding-bottom: 0.5em;
+}
+
+div#preamble {
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+div.tableblock, div.imageblock, div.exampleblock, div.verseblock,
+div.quoteblock, div.literalblock, div.listingblock, div.sidebarblock,
+div.admonitionblock {
+  margin-top: 1.0em;
+  margin-bottom: 1.5em;
+}
+div.admonitionblock {
+  margin-top: 2.0em;
+  margin-bottom: 2.0em;
+  margin-right: 10%;
+  color: #606060;
+}
+
+div.content { /* Block element content. */
+  padding: 0;
+}
+
+/* Block element titles. */
+div.title, caption.title {
+  color: #527bbd;
+  font-weight: bold;
+  text-align: left;
+  margin-top: 1.0em;
+  margin-bottom: 0.5em;
+}
+div.title + * {
+  margin-top: 0;
+}
+
+td div.title:first-child {
+  margin-top: 0.0em;
+}
+div.content div.title:first-child {
+  margin-top: 0.0em;
+}
+div.content + div.title {
+  margin-top: 0.0em;
+}
+
+div.sidebarblock > div.content {
+  background: #ffffee;
+  border: 1px solid #dddddd;
+  border-left: 4px solid #f0f0f0;
+  padding: 0.5em;
+}
+
+div.listingblock > div.content {
+  border: 1px solid #dddddd;
+  border-left: 5px solid #f0f0f0;
+  background: #f8f8f8;
+  padding: 0.5em;
+}
+
+div.quoteblock, div.verseblock {
+  padding-left: 1.0em;
+  margin-left: 1.0em;
+  margin-right: 10%;
+  border-left: 5px solid #f0f0f0;
+  color: #777777;
+}
+
+div.quoteblock > div.attribution {
+  padding-top: 0.5em;
+  text-align: right;
+}
+
+div.verseblock > pre.content {
+  font-family: inherit;
+  font-size: inherit;
+}
+div.verseblock > div.attribution {
+  padding-top: 0.75em;
+  text-align: left;
+}
+/* DEPRECATED: Pre version 8.2.7 verse style literal block. */
+div.verseblock + div.attribution {
+  text-align: left;
+}
+
+div.admonitionblock .icon {
+  vertical-align: top;
+  font-size: 1.1em;
+  font-weight: bold;
+  text-decoration: underline;
+  color: #527bbd;
+  padding-right: 0.5em;
+}
+div.admonitionblock td.content {
+  padding-left: 0.5em;
+  border-left: 3px solid #dddddd;
+}
+
+div.exampleblock > div.content {
+  border-left: 3px solid #dddddd;
+  padding-left: 0.5em;
+}
+
+div.imageblock div.content { padding-left: 0; }
+span.image img { border-style: none; }
+a.image:visited { color: white; }
+
+dl {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+}
+dt {
+  margin-top: 0.5em;
+  margin-bottom: 0;
+  font-style: normal;
+  color: navy;
+}
+dd > *:first-child {
+  margin-top: 0.1em;
+}
+
+ul, ol {
+    list-style-position: outside;
+}
+ol.arabic {
+  list-style-type: decimal;
+}
+ol.loweralpha {
+  list-style-type: lower-alpha;
+}
+ol.upperalpha {
+  list-style-type: upper-alpha;
+}
+ol.lowerroman {
+  list-style-type: lower-roman;
+}
+ol.upperroman {
+  list-style-type: upper-roman;
+}
+
+div.compact ul, div.compact ol,
+div.compact p, div.compact p,
+div.compact div, div.compact div {
+  margin-top: 0.1em;
+  margin-bottom: 0.1em;
+}
+
+div.tableblock > table {
+  border: 3px solid #527bbd;
+}
+thead, p.table.header {
+  font-weight: bold;
+  color: #527bbd;
+}
+tfoot {
+  font-weight: bold;
+}
+td > div.verse {
+  white-space: pre;
+}
+p.table {
+  margin-top: 0;
+}
+/* Because the table frame attribute is overriden by CSS in most browsers. */
+div.tableblock > table[frame="void"] {
+  border-style: none;
+}
+div.tableblock > table[frame="hsides"] {
+  border-left-style: none;
+  border-right-style: none;
+}
+div.tableblock > table[frame="vsides"] {
+  border-top-style: none;
+  border-bottom-style: none;
+}
+
+
+div.hdlist {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+}
+div.hdlist tr {
+  padding-bottom: 15px;
+}
+dt.hdlist1.strong, td.hdlist1.strong {
+  font-weight: bold;
+}
+td.hdlist1 {
+  vertical-align: top;
+  font-style: normal;
+  padding-right: 0.8em;
+  color: navy;
+}
+td.hdlist2 {
+  vertical-align: top;
+}
+div.hdlist.compact tr {
+  margin: 0;
+  padding-bottom: 0;
+}
+
+.comment {
+  background: yellow;
+}
+
+.footnote, .footnoteref {
+  font-size: 0.8em;
+}
+
+span.footnote, span.footnoteref {
+  vertical-align: super;
+}
+
+#footnotes {
+  margin: 20px 0 20px 0;
+  padding: 7px 0 0 0;
+}
+
+#footnotes div.footnote {
+  margin: 0 0 5px 0;
+}
+
+#footnotes hr {
+  border: none;
+  border-top: 1px solid silver;
+  height: 1px;
+  text-align: left;
+  margin-left: 0;
+  width: 20%;
+  min-width: 100px;
+}
+
+div.colist td {
+  padding-right: 0.5em;
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+div.colist td img {
+  margin-top: 0.3em;
+}
+
+@media print {
+  div#footer-badges { display: none; }
+}
+
+div#toc {
+  margin-bottom: 2.5em;
+}
+
+div#toctitle {
+  color: #527bbd;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-top: 1.0em;
+  margin-bottom: 0.1em;
+}
+
+div.toclevel1, div.toclevel2, div.toclevel3, div.toclevel4 {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+div.toclevel2 {
+  margin-left: 2em;
+  font-size: 0.9em;
+}
+div.toclevel3 {
+  margin-left: 4em;
+  font-size: 0.9em;
+}
+div.toclevel4 {
+  margin-left: 6em;
+  font-size: 0.9em;
+}
+
+</style>
+<script type="text/javascript">
+/*<![CDATA[*/
+window.onload = function(){asciidoc.footnotes(); asciidoc.toc(2);}
+var asciidoc = {  // Namespace.
+
+/////////////////////////////////////////////////////////////////////
+// Table Of Contents generator
+/////////////////////////////////////////////////////////////////////
+
+/* Author: Mihai Bazon, September 2002
+ * http://students.infoiasi.ro/~mishoo
+ *
+ * Table Of Content generator
+ * Version: 0.4
+ *
+ * Feel free to use this script under the terms of the GNU General Public
+ * License, as long as you do not remove or alter this notice.
+ */
+
+ /* modified by Troy D. Hanson, September 2006. License: GPL */
+ /* modified by Stuart Rackham, 2006, 2009. License: GPL */
+
+// toclevels = 1..4.
+toc: function (toclevels) {
+
+  function getText(el) {
+    var text = "";
+    for (var i = el.firstChild; i != null; i = i.nextSibling) {
+      if (i.nodeType == 3 /* Node.TEXT_NODE */) // IE doesn't speak constants.
+        text += i.data;
+      else if (i.firstChild != null)
+        text += getText(i);
+    }
+    return text;
+  }
+
+  function TocEntry(el, text, toclevel) {
+    this.element = el;
+    this.text = text;
+    this.toclevel = toclevel;
+  }
+
+  function tocEntries(el, toclevels) {
+    var result = new Array;
+    var re = new RegExp('[hH]([2-'+(toclevels+1)+'])');
+    // Function that scans the DOM tree for header elements (the DOM2
+    // nodeIterator API would be a better technique but not supported by all
+    // browsers).
+    var iterate = function (el) {
+      for (var i = el.firstChild; i != null; i = i.nextSibling) {
+        if (i.nodeType == 1 /* Node.ELEMENT_NODE */) {
+          var mo = re.exec(i.tagName);
+          if (mo && (i.getAttribute("class") || i.getAttribute("className")) != "float") {
+            result[result.length] = new TocEntry(i, getText(i), mo[1]-1);
+          }
+          iterate(i);
+        }
+      }
+    }
+    iterate(el);
+    return result;
+  }
+
+  var toc = document.getElementById("toc");
+  var entries = tocEntries(document.getElementById("content"), toclevels);
+  for (var i = 0; i < entries.length; ++i) {
+    var entry = entries[i];
+    if (entry.element.id == "")
+      entry.element.id = "_toc_" + i;
+    var a = document.createElement("a");
+    a.href = "#" + entry.element.id;
+    a.appendChild(document.createTextNode(entry.text));
+    var div = document.createElement("div");
+    div.appendChild(a);
+    div.className = "toclevel" + entry.toclevel;
+    toc.appendChild(div);
+  }
+  if (entries.length == 0)
+    toc.parentNode.removeChild(toc);
+},
+
+
+/////////////////////////////////////////////////////////////////////
+// Footnotes generator
+/////////////////////////////////////////////////////////////////////
+
+/* Based on footnote generation code from:
+ * http://www.brandspankingnew.net/archive/2005/07/format_footnote.html
+ */
+
+footnotes: function () {
+  var cont = document.getElementById("content");
+  var noteholder = document.getElementById("footnotes");
+  var spans = cont.getElementsByTagName("span");
+  var refs = {};
+  var n = 0;
+  for (i=0; i<spans.length; i++) {
+    if (spans[i].className == "footnote") {
+      n++;
+      // Use [\s\S] in place of . so multi-line matches work.
+      // Because JavaScript has no s (dotall) regex flag.
+      note = spans[i].innerHTML.match(/\s*\[([\s\S]*)]\s*/)[1];
+      noteholder.innerHTML +=
+        "<div class='footnote' id='_footnote_" + n + "'>" +
+        "<a href='#_footnoteref_" + n + "' title='Return to text'>" +
+        n + "</a>. " + note + "</div>";
+      spans[i].innerHTML =
+        "[<a id='_footnoteref_" + n + "' href='#_footnote_" + n +
+        "' title='View footnote' class='footnote'>" + n + "</a>]";
+      var id =spans[i].getAttribute("id");
+      if (id != null) refs["#"+id] = n;
+    }
+  }
+  if (n == 0)
+    noteholder.parentNode.removeChild(noteholder);
+  else {
+    // Process footnoterefs.
+    for (i=0; i<spans.length; i++) {
+      if (spans[i].className == "footnoteref") {
+        var href = spans[i].getElementsByTagName("a")[0].getAttribute("href");
+        href = href.match(/#.*/)[0];  // Because IE return full URL.
+        n = refs[href];
+        spans[i].innerHTML =
+          "[<a href='#_footnote_" + n +
+          "' title='View footnote' class='footnote'>" + n + "</a>]";
+      }
+    }
+  }
+}
+
+}
+/*]]>*/
+</script>
+</head>
+<body class="article">
+<div id="header">
+<h1>Testing the PCC functionality of the icardea Interop. Framework</h1>
+<span id="author">Stelios Sfakianakis</span><br />
+<span id="email"><tt>&lt;<a href="mailto:ssfak@ics.forth.gr">ssfak@ics.forth.gr</a>&gt;</tt></span><br />
+<span id="revnumber">version 0.5,</span>
+<span id="revdate">March 2011</span>
+<div id="toc">
+  <div id="toctitle">Table of Contents</div>
+  <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
+</div>
+</div>
+<div id="content">
+<div class="sect1">
+<h2 id="_for_the_impatient">For the impatient..</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>The PCC functionality is offered by two components of the iCARDEA
+interoperability framework: the XDS Registry/Repository and the so
+called "Update Broker":</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+The PCC-9 ("Care Manager Data Query") message should be sent (via a
+  SOAP formatted POST) to a specific endpoint (url) of the XDS
+  component. The endpoint is <a href="http://localhost:9080/pcc/">http://localhost:9080/pcc/</a> (where instead
+  of <tt>localhost</tt> you can put the DNS name or IP address of the machine
+  that the XDS component runs on)
+</p>
+</li>
+<li>
+<p>
+The PCC-10 ("Care Management Update") message is sent from the
+  Update Broker. That&#8217;s the sole purpose of this Broker: to send
+  PCC-10 messages to the Care Managers that have been registered
+  by sending an initial PCC-09.
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>So in conclusion you need to do the following:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+Launch the <em>mongod</em> executable by issuing (see also the
+  <a href="INSTALL.html">INSTALL</a> file)
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>mongod --dbpath data --journal --directoryperdb</tt></pre>
+</div></div>
+</li>
+<li>
+<p>
+Start XDS by issuing (in a command line window) :
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>python xds.py</tt></pre>
+</div></div>
+</li>
+<li>
+<p>
+Start Update Broker by issuing (in a command line window) :
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>python ub.py</tt></pre>
+</div></div>
+</li>
+<li>
+<p>
+Send your PCC-9 messages in <tt>http://localhost:9080/pcc/</tt> and
+  wait.. When a new CDA XML document is registered with the XDS
+  registry that matches your PCC-9, the matching <tt>entries</tt>,
+  <tt>observations</tt>, etc. of this document will be send to you in a
+  nicely formatted PCC-10 message.
+</p>
+</li>
+</ul></div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_implementation_details">Implementation details</h2>
+<div class="sectionbody">
+<div class="admonitionblock">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">In this document we are using the terminology introduced by
+      PCC. In particular <em>Care Manager</em> is the actor (service,
+      component) that sends the initial PCC-9 message while the
+      <em>Clinical Data Source</em> is the the actor that replies with one or
+      more PCC-10 messages. In our case the role of the Clinical Data
+      Source is played by the XDS and Update Broker components.</td>
+</tr></table>
+</div>
+<div class="paragraph"><p>In essense PCC-9/PCC-10 is a kind of publish/subscribe messaging
+pattern : PCC-9 represents the initial subscription message with all
+the query parameters/constraints that will be applied to the current
+and the future contents of the XDS repository. The results will be
+sent through one or more separate PCC-10 messages. So the PCC-09
+messages carry query parameters that specify what information should
+be sent in the future PCC-10 <span class="footnote"><br />[Quite astonishingly there&#8217;s no
+unsubscribe message, i.e. subscriptions (PCC-09) live forever!]<br /></span>. You
+can see how the PCC-09 should be formatted
+<a href="http://wiki.ihe.net/index.php?title=PCC-9">here</a> but the most important
+information is the following:</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+The <a href="http://goo.gl/DduTH">patient id</a> that specifies the patient that
+  specifies the patient that the Care Manager is interested in. This
+  is required to be specified in the PCC-09 message and a single
+  patient id should be given. If the Care Manager is interested in two
+  or more patients it should sent that many seperate PCC-09
+  messages. There a shortcut if the Care Manager is interested in all
+  patients: in that case it can specify the <em>*</em> as the patient id.
+</p>
+</li>
+<li>
+<p>
+The <a href="http://goo.gl/lSMg">care provision code</a> that specifies what kind
+  of clinical content the Care Manager wants to receive. There are a
+  couple of predefined provision codes like LABCAT (for the laboratory
+  results), MEDLIST (for all medications), etc. Also please note that
+  for each of the predefined provision codes there&#8217;s a
+  (<a href="http://en.wikipedia.org/wiki/Continuity_of_Care_Document">CCD</a>
+  based?)  <em>template id</em> (more on this below).
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>In order for the PCC-10 to be sent in separate SOAP messages, the
+subscriber&#8217;s (i.e CareManager&#8217;s) endpoint URL should also be
+available. How this is to be provided is not described. In our
+implementation we expect this endpoint of the Care Manager to be
+specified as a
+<a href="http://en.wikipedia.org/wiki/WS-Addressing">WS-Addressing</a> "Reply"
+endpoint within SOAP header. An example PCC-9 wrapped in SOAP envelope
+with the expeced addressing information is the following:</p></div>
+<div class="literalblock">
+<div class="content">
+<pre><tt>&lt;s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"&gt;
+       &lt;s:Header&gt;
+          &lt;wsa:ReplyTo xmlns:wsa="http://www.w3.org/2005/08/addressing"&gt;
+               &lt;wsa:Address&gt;http://www.example.com:8080/pcc10&lt;/wsa:address&gt;
+          &lt;/wsa:ReplyTo&gt;
+       &lt;/s:Header&gt;
+       &lt;s:Body&gt;
+               &lt;QUPC_IN043100UV01 xmlns="urn:hl7-org:v3" ITSVersion="XML_1.0"&gt;
+               ...
+               &lt;/QUPC_IN043100UV01&gt;
+       &lt;/s:Body&gt;
+&lt;/soapenv:Envelope&gt;</tt></pre>
+</div></div>
+<div class="paragraph"><p>i.e. <tt>http://www.example.com:8080/pcc10</tt> is the (fictional) url where
+the Clinical Data source (the Update Broker combo in our case) will
+send the subsequent PCC-10 messages.</p></div>
+<div class="sect2">
+<h3 id="_matching_pcc_9_requests_to_the_clinical_content">Matching PCC-9 requests to the clinical content</h3>
+<div class="paragraph"><p>How the Update Broker finds if it should send some PCC-10 messages in
+the Care Manager and what to put there? In our implementation these
+decisions are based on the <em>template ids</em> of the care provision codes
+that were requested in the PCC-9 messages. In other words the Uodate
+Broker expects to find the <tt>entries</tt> in the CDA documents of the XDS
+repository that have been "annotated" with the corresponding template
+id.</p></div>
+<div class="paragraph"><p>As an example the <a href="http://goo.gl/lSMg">COBSCAT provision code</a>
+representing "All Vital Signs" is linked to the
+<a href="http://goo.gl/JxTtB">1.3.6.1.4.1.19376.1.5.3.1.4.13.2</a> template
+id. Therefore if a new CDA document contains an <tt>observation</tt> with
+that template id then it will be send in a new PCC-10 message. The
+following is such an observation:</p></div>
+<div class="literalblock">
+<div class="content">
+<pre><tt>&lt;observation classCode="OBS" moodCode="EVN" negationInd=" false"&gt;
+              &lt;templateId root='2.16.840.1.113883.10.20.1.31'/&gt;
+              &lt;templateId root='1.3.6.1.4.1.19376.1.5.3.1.4.13.2'/&gt;
+              &lt;id root=' ' extension=' '/&gt;
+              &lt;code code='9279-1' codeSystem='2.16.840.1.113883.6.1' codeSystemName='LOINC'/&gt;
+              &lt;text&gt;&lt;reference value='#xxx'/&gt;&lt;/text&gt;
+              &lt;statusCode code='completed'/&gt;
+              &lt;effectiveTime value='201010101010'/&gt;
+              &lt;value xsi:type='PQ' value='60' unit='/min'/&gt;
+&lt;/observation&gt;</tt></pre>
+</div></div>
+<div class="paragraph"><p>The Update Broker is notified by the XDS Registry when a new document
+is stored so that immediately all the "subscriptions" (PCC-9) are
+checked if match.</p></div>
+<div class="paragraph"><p>A final detail: in order for the Update Broker to check a document if
+it matches any of the existing subscriptions, the document should have
+been registered with <tt>text/xml</tt> MIME type in the XDS Registry.</p></div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_appendix_documents_of_interest">Appendix: Documents of interest</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>The <a href="http://www.ihe.net/Technical_Framework/index.cfm#pcc">Patient Care
+Coordination (PCC)</a> Technical Framework defines an integration profile
+for the Cross Enterprise Sharing of Medical Summaries Integration
+Profile (XDS-MS), including Medical Summary Document Content (MS)
+specification, Emergency Department Referral (EDR), and Exchange of
+Personal Health Record Content (XPHR). The transactions that we are
+interested in can be found in the <a href="http://goo.gl/An2AE">Care Management
+Supplement for Trial Implementation</a> (Published 2008-08-26). This
+supplement defines Care Management Data Query (PCC-9, Section
+<a href="http://goo.gl/THI6W">3.9</a>) and V3 Care Management Update(PCC-10,
+Section <a href="http://goo.gl/iaJBv">3.10</a>)</p></div>
+<div class="paragraph"><p>There&#8217;s also an online version at
+<a href="http://wiki.ihe.net/index.php?title=PCC_TF-2">http://wiki.ihe.net/index.php?title=PCC_TF-2</a> that links to the
+different transactions in their own wiki pages:
+<a href="http://wiki.ihe.net/index.php?title=PCC-9">PCC-9</a>,
+<a href="http://wiki.ihe.net/index.php?title=PCC-10">PCC-10</a></p></div>
+</div>
+</div>
+</div>
+<div id="footnotes"><hr /></div>
+<div id="footer">
+<div id="footer-text">
+Version 0.5<br />
+Last updated 2011-03-28 23:58:00 GTB Daylight Time
+</div>
+</div>
+</body>
+</html>
