@@ -2,18 +2,15 @@ Installation and Configuration for the icardea Interop. Framework
 =================================================================
 :author: Stelios Sfakianakis
 :email:  ssfak@ics.forth.gr
-:revdate: February 2011
-:revnumber: 0.6
+:revdate: March 2011
+:revnumber: 0.7
 :toc:
 //:icons:
 :data-uri:
 :lang: en
 :encoding: iso-8859-1
 
-WARNING: These are some rough notes.. Work in progress
-
-Prerequisites
--------------
+== Prerequisites
 
 * http://www.mongodb.org/[mongodb] is the database management system
   (of the http://en.wikipedia.org/wiki/NoSQL[noSQL] genre) used to
@@ -59,16 +56,17 @@ CAUTION: As described http://blog.mongodb.org/post/137788967[here]
  easy_install greenlet
  easy_install gevent
 
- .. http://www.cherrypy.org/[cherrypy] by issuing
+ .. http://www.cherrypy.org/[cherrypy] (version 3.1.2) You can find a setup for
+    Windows 32bit in +tools_resources/python+ directory. Alternatively
+    you can install it by issuing
 
- easy_install cherrypy
+ easy_install "cherrypy==3.1.2"
 
  .. http://pypi.python.org/pypi/pymongo/[pymongo] by issuing
 
  easy_install pymongo
 
-Configuration
--------------
+=== Configuration
 
 * Change the line "MONGO_HOST=..." in +ub.py+ and +xds.py+ if mongodb is
   installed in a different machine instead of localhost.
@@ -77,20 +75,29 @@ Configuration
 
 * ...
 
-Run
----
+=== Run
 
-* First of all you have to launch the mongodb database
-  server. You have to launch a command prompt and +cd+ to the folder
-  where you have unzipped the distribution. There you can find a +bin+
-  subdirectory that contains various executable files. 
+* First of all you have to launch the mongodb database server. You
+  have to launch a command prompt and +cd+ to the folder where you
+  have unzipped the distribution. For the now on I am assuming that
+  you have unzip MongoDB in the +c:\mongodb+ directory. In the home
+  directory of the MongoDB you can find a +bin+ subdirectory that
+  contains various executable files.
 
- .. Create a +data+ subdirectory inside the +bin+ folder. All the
-    databases will be persisted there.
+ .. Create a +data+ subdirectory inside the +bin+ folder. This is the
+    _dbpath_ and all the MongoDB databases will be persisted there.
+
+ .. Create a +mongodb.conf+ with the following contents (you need to
+    adjust properly for the _dbpath_ variable):
+
+ journal = true
+ dbpath = C:\mongodb\bin\data
+ directoryperdb = true
+ rest = true
 
  .. Launch (in the command line) the _mongod_ executable by issuing
 
- mongod --dbpath data --journal --directoryperdb
+ mongod -f mongodb.conf
 
  .. You 're ready!
 
@@ -117,3 +124,9 @@ application or by issuing
 
  python ub.py
 
+
+== Testing the components
+
+You can find more details about the testing of the components in the
+link:TESTING_XDS.html[TESTING_XDS] and
+link:TESTING_PCC.html[TESTING_PCC] files.

@@ -534,26 +534,14 @@ footnotes: function () {
 <h1>Installation and Configuration for the icardea Interop. Framework</h1>
 <span id="author">Stelios Sfakianakis</span><br />
 <span id="email"><tt>&lt;<a href="mailto:ssfak@ics.forth.gr">ssfak@ics.forth.gr</a>&gt;</tt></span><br />
-<span id="revnumber">version 0.6,</span>
-<span id="revdate">February 2011</span>
+<span id="revnumber">version 0.7,</span>
+<span id="revdate">March 2011</span>
 <div id="toc">
   <div id="toctitle">Table of Contents</div>
   <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
 </div>
 </div>
 <div id="content">
-<div id="preamble">
-<div class="sectionbody">
-<div class="admonitionblock">
-<table><tr>
-<td class="icon">
-<div class="title">Warning</div>
-</td>
-<td class="content">These are some rough notes.. Work in progress</td>
-</tr></table>
-</div>
-</div>
-</div>
 <div class="sect1">
 <h2 id="_prerequisites">Prerequisites</h2>
 <div class="sectionbody">
@@ -633,11 +621,13 @@ easy_install gevent</tt></pre>
 </li>
 <li>
 <p>
-<a href="http://www.cherrypy.org/">cherrypy</a> by issuing
+<a href="http://www.cherrypy.org/">cherrypy</a> (version 3.1.2) You can find a setup for
+    Windows 32bit in <tt>tools_resources/python</tt> directory. Alternatively
+    you can install it by issuing
 </p>
 <div class="literalblock">
 <div class="content">
-<pre><tt>easy_install cherrypy</tt></pre>
+<pre><tt>easy_install "cherrypy==3.1.2"</tt></pre>
 </div></div>
 </li>
 <li>
@@ -652,11 +642,8 @@ easy_install gevent</tt></pre>
 </ol></div>
 </li>
 </ul></div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_configuration">Configuration</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_configuration">Configuration</h3>
 <div class="ulist"><ul>
 <li>
 <p>
@@ -676,24 +663,37 @@ Change the configuration in the file <tt>config.ini</tt> in the <tt>hl7</tt> fol
 </li>
 </ul></div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="_run">Run</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_run">Run</h3>
 <div class="ulist"><ul>
 <li>
 <p>
-First of all you have to launch the mongodb database
-  server. You have to launch a command prompt and <tt>cd</tt> to the folder
-  where you have unzipped the distribution. There you can find a <tt>bin</tt>
-  subdirectory that contains various executable files.
+First of all you have to launch the mongodb database server. You
+  have to launch a command prompt and <tt>cd</tt> to the folder where you
+  have unzipped the distribution. For the now on I am assuming that
+  you have unzip MongoDB in the <tt>c:\mongodb</tt> directory. In the home
+  directory of the MongoDB you can find a <tt>bin</tt> subdirectory that
+  contains various executable files.
 </p>
 <div class="olist loweralpha"><ol class="loweralpha">
 <li>
 <p>
-Create a <tt>data</tt> subdirectory inside the <tt>bin</tt> folder. All the
-    databases will be persisted there.
+Create a <tt>data</tt> subdirectory inside the <tt>bin</tt> folder. This is the
+    <em>dbpath</em> and all the MongoDB databases will be persisted there.
 </p>
+</li>
+<li>
+<p>
+Create a <tt>mongodb.conf</tt> with the following contents (you need to
+    adjust properly for the <em>dbpath</em> variable):
+</p>
+<div class="literalblock">
+<div class="content">
+<pre><tt>journal = true
+dbpath = C:\mongodb\bin\data
+directoryperdb = true
+rest = true</tt></pre>
+</div></div>
 </li>
 <li>
 <p>
@@ -701,7 +701,7 @@ Launch (in the command line) the <em>mongod</em> executable by issuing
 </p>
 <div class="literalblock">
 <div class="content">
-<pre><tt>mongod --dbpath data --journal --directoryperdb</tt></pre>
+<pre><tt>mongod -f mongodb.conf</tt></pre>
 </div></div>
 </li>
 <li>
@@ -758,11 +758,20 @@ Start Update Broker by issuing (in a command line window):
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="_testing_the_components">Testing the components</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>You can find more details about the testing of the components in the
+<a href="TESTING_XDS.html">TESTING_XDS</a> and
+<a href="TESTING_PCC.html">TESTING_PCC</a> files.</p></div>
+</div>
+</div>
+</div>
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Version 0.6<br />
-Last updated 2011-03-18 13:39:45 GTB Standard Time
+Version 0.7<br />
+Last updated 2011-03-29 18:30:04 GTB Daylight Time
 </div>
 </div>
 </body>

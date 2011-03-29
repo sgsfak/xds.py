@@ -567,6 +567,27 @@ The PCC-10 ("Care Management Update") message is sent from the
 </p>
 </li>
 </ul></div>
+<div class="paragraph"><p>You can get an overview of the communication in the following picture:</p></div>
+<div class="literalblock">
+<div class="content">
+<pre><tt>XDS.b      PCC-9                 PCC-10
+   .         .                     ^
+   |         |                     |
++--v---------v--+           +------+-------+
+|               |           |              |
+| XDS Registry  +----------&gt;|   Update     |
+| &amp; Repository  |   TCP     |   Broker     |
+|               |           |              |
++--------\------+           +--/-----------+
+          \                   /
+           \                 /
+            \               /
+             \             /
+              \           /
+               -----------
+              (  MongoDB  )
+               -----------</tt></pre>
+</div></div>
 <div class="paragraph"><p>So in conclusion you need to do the following:</p></div>
 <div class="ulist"><ul>
 <li>
@@ -822,7 +843,7 @@ different transactions in their own wiki pages:
 <div id="footer">
 <div id="footer-text">
 Version 0.5<br />
-Last updated 2011-03-29 03:06:50 GTB Daylight Time
+Last updated 2011-03-29 14:46:41 GTB Daylight Time
 </div>
 </div>
 </body>

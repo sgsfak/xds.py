@@ -25,6 +25,25 @@ called "Update Broker":
   PCC-10 messages to the Care Managers that have been registered
   by sending an initial PCC-09.
 
+You can get an overview of the communication in the following picture: 
+
+                XDS.b      PCC-9                 PCC-10
+                   .         .                     ^
+                   |         |                     |
+                +--v---------v--+           +------+-------+
+                |               |           |              |
+                | XDS Registry  +---------->|   Update     |
+                | & Repository  |   TCP     |   Broker     |
+                |               |           |              |
+                +--------\------+           +--/-----------+
+                          \                   /
+                           \                 /
+                            \               /
+                             \             /
+                              \           /
+                               -----------
+                              (  MongoDB  )
+                               -----------
 
 So in conclusion you need to do the following:
 
