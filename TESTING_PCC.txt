@@ -47,6 +47,59 @@ So in conclusion you need to do the following:
   +observations+, etc. of this document will be send to you in a
   nicely formatted PCC-10 message.
 
+=== Quick testing (kind of..)
+
+There's a test Care Manager server (developed in Python) that you can
+find at +pcc_client.py+. This client sends an initial PCC-9 and then
+waits for PCC-10 messages. You can find its parameters as follows:
+
+ python pcc_client.py -h
+ 
+ Usage: pcc_client.py   [options]
+
+ Options:
+  -h, --help            show this help message and exit
+  -p PATIENT_ID         the patient id. Default: pat1234
+  -c PROVISION_CODE     the care provision code (See http://goo.gl/lSMg)
+                        Default:MEDLIST
+  -s SERVER, --data-source=SERVER
+                        the Data Source endpoint (where the PCC-9 will be send
+                        to) Default: http://localhost:9080/pcc/
+
+The default options are fine for the current test and after you launch it
+(assuming that Mongo, XDS, and the Update Broker are also running) you
+can go to http://localhost:9081 (the Update Broker's "site") to see
+that there's a new subscription.
+
+Now you can send a new CDA document to the XDS Repository. The easiest
+way to do it is by using the XDSToolkitGUI (Consult
+link:TESTING_XDS.html[TESTING_XDS] on how to install and configure it)
+with some minor modification: You need to unzip the
++SingleXMLDocument.zip+ that you can find in the current directory to
+the +toolkitx\testkit\testdata-repository+ subdirectory of the
+XDSTools2 webapp of Tomcat. This contains a single CDA/XML document
+for patient +pat1234+ with a _MEDLIST_ observation. After the unzip
+you can go to the http://localhost:8080/xdstools2.135/[XdsTools2 web
+application] and in the *Tools* column you can find a
+*Repository Test Data* link that when pressed a new tab called
+"Repository Testdata" is opened.
+
+* In the *Patient ID* field add  +$$pat1234^^^&&ISO$$+
+
+* In the *Select Test Data Set* choose the 'SingleXMLDocument'
+
+* Enable the 'local' site
+
+* Disable 'TLS'
+
+* Press *Run*
+ 
+If everything goes all right you will see a 'Status: Successs'
+message meaning that the document was successfully uploaded and
+indexed by XDS. At the same time it should be matched by the Update
+Broker to the PCC-9 message submitted by +pcc_client.py+ and you
+should be able to see the PCC-10 message sent to it...
+
 == Implementation details
 
 NOTE: In this document we are using the terminology introduced by

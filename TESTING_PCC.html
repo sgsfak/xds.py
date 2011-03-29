@@ -607,6 +607,79 @@ Send your PCC-9 messages in <tt>http://localhost:9080/pcc/</tt> and
 </p>
 </li>
 </ul></div>
+<div class="sect2">
+<h3 id="_quick_testing_kind_of">Quick testing (kind of..)</h3>
+<div class="paragraph"><p>There&#8217;s a test Care Manager server (developed in Python) that you can
+find at <tt>pcc_client.py</tt>. This client sends an initial PCC-9 and then
+waits for PCC-10 messages. You can find its parameters as follows:</p></div>
+<div class="literalblock">
+<div class="content">
+<pre><tt>python pcc_client.py -h</tt></pre>
+</div></div>
+<div class="literalblock">
+<div class="content">
+<pre><tt>Usage: pcc_client.py   [options]</tt></pre>
+</div></div>
+<div class="literalblock">
+<div class="content">
+<pre><tt>Options:
+ -h, --help            show this help message and exit
+ -p PATIENT_ID         the patient id. Default: pat1234
+ -c PROVISION_CODE     the care provision code (See http://goo.gl/lSMg)
+                       Default:MEDLIST
+ -s SERVER, --data-source=SERVER
+                       the Data Source endpoint (where the PCC-9 will be send
+                       to) Default: http://localhost:9080/pcc/</tt></pre>
+</div></div>
+<div class="paragraph"><p>The default options are fine for the current test and after you launch it
+(assuming that Mongo, XDS, and the Update Broker are also running) you
+can go to <a href="http://localhost:9081">http://localhost:9081</a> (the Update Broker&#8217;s "site") to see
+that there&#8217;s a new subscription.</p></div>
+<div class="paragraph"><p>Now you can send a new CDA document to the XDS Repository. The easiest
+way to do it is by using the XDSToolkitGUI (Consult
+<a href="TESTING_XDS.html">TESTING_XDS</a> on how to install and configure it)
+with some minor modification: You need to unzip the
+<tt>SingleXMLDocument.zip</tt> that you can find in the current directory to
+the <tt>toolkitx\testkit\testdata-repository</tt> subdirectory of the
+XDSTools2 webapp of Tomcat. This contains a single CDA/XML document
+for patient <tt>pat1234</tt> with a <em>MEDLIST</em> observation. After the unzip
+you can go to the <a href="http://localhost:8080/xdstools2.135/">XdsTools2 web
+application</a> and in the <strong>Tools</strong> column you can find a
+<strong>Repository Test Data</strong> link that when pressed a new tab called
+"Repository Testdata" is opened.</p></div>
+<div class="ulist"><ul>
+<li>
+<p>
+In the <strong>Patient ID</strong> field add  <tt>pat1234^^^&amp;&amp;ISO</tt>
+</p>
+</li>
+<li>
+<p>
+In the <strong>Select Test Data Set</strong> choose the <em>SingleXMLDocument</em>
+</p>
+</li>
+<li>
+<p>
+Enable the <em>local</em> site
+</p>
+</li>
+<li>
+<p>
+Disable <em>TLS</em>
+</p>
+</li>
+<li>
+<p>
+Press <strong>Run</strong>
+</p>
+</li>
+</ul></div>
+<div class="paragraph"><p>If everything goes all right you will see a <em>Status: Successs</em>
+message meaning that the document was successfully uploaded and
+indexed by XDS. At the same time it should be matched by the Update
+Broker to the PCC-9 message submitted by <tt>pcc_client.py</tt> and you
+should be able to see the PCC-10 message sent to it&#8230;</p></div>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -749,7 +822,7 @@ different transactions in their own wiki pages:
 <div id="footer">
 <div id="footer-text">
 Version 0.5<br />
-Last updated 2011-03-28 23:58:00 GTB Daylight Time
+Last updated 2011-03-29 03:06:50 GTB Daylight Time
 </div>
 </div>
 </body>

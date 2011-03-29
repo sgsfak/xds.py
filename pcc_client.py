@@ -5,13 +5,19 @@ from gevent import wsgi
 from optparse import OptionParser
 from lxml import etree
 import urllib2
+import socket
+import sys
 
-ENDPOINT = '/pcc10/'
+PATH = '/pcc10/'
+MYIP = socket.gethostbyname_ex(socket.gethostname())[2][0]
 PORT = 8088
+MYENDPOINT = 'http://%s:%s%s' % (MYIP, PORT, PATH)
+
 NS = {"soap":"http://www.w3.org/2003/05/soap-envelope", 
       "wsa":"http://www.w3.org/2005/08/addressing"
       }
 ACTION = 'urn:hl7-org:v3:QUPC_IN043100UV01'
+SERVER = 'http://localhost:9080/pcc/'
 CARE_PROVISION_CODE = 'MEDLIST'
 PATIENT_ID = 'pat1234'
 
@@ -54,8 +60,8 @@ def pcc10_handler(env, start_response):
     if env['REQUEST_METHOD'].upper()  == 'GET':
         start_response('200 OK', [('Content-Type', 'text/html')])
         return ["Hi! I am waiting for PCC-10 messages to be POSTed at <a href='%s'>%s</a>" %
-                (ENDPOINT, ENDPOINT)]
-    elif env['PATH_INFO'] == ENDPOINT:
+                (MYENDPOINT, MYENDPOINT)]
+    elif env['PATH_INFO'] == PATH:
         msg = env['wsgi.input'].read()
         print "I got new PCC-10!! Here it is:"
         print msg
@@ -83,18 +89,21 @@ PCODES = ['HISTMEDLIST',
 
 if __name__ == "__main__":
     parser = OptionParser(usage = "usage: %prog [options]")
-    parser.set_defaults(patient_id=PATIENT_ID, provision_code=CARE_PROVISION_CODE)
-    parser.add_option("-p", action="store", dest="patient_id", help='the patient id')
+    parser.set_defaults(patient_id=PATIENT_ID, provision_code=CARE_PROVISION_CODE, server=SERVER)
+    parser.add_option("-p", action="store", dest="patient_id", help='the patient id. Default: %s'%(PATIENT_ID,))
     parser.add_option("-c", action="store", choices=PCODES, dest="provision_code",
-                      help='the care provision code (See http://goo.gl/lSMg)')
+                      help='the care provision code (See http://goo.gl/lSMg) Default:%s'%(CARE_PROVISION_CODE,))
+    parser.add_option("-s", "--data-source", action="store", dest="server",
+                      help='the Data Source endpoint (where the PCC-9 will be send to) Default: %s'%(SERVER,))
     (options, args) = parser.parse_args()
 
     patient_id = options.patient_id
     provision_code = options.provision_code
+    server = options.server
     with open("pcc-9.template.xml") as f:
         pcc9 = f.read()
     pcc9 = pcc9.replace('$PATIENT_ID$', patient_id.replace('&', '&amp;')).replace('$CARE_PROVISION_CODE$', provision_code)
-    send_pcc9('http://localhost:9080/pcc/', 'http://localhost:%s%s' % (PORT, ENDPOINT), pcc9)
+    send_pcc9(server, MYENDPOINT, pcc9)
     print 'I registered (i.e. sent PCC-9) for patient: %s and care prov code: %s' % (patient_id, provision_code)
     print 'Waiting for PCC-10 on %s...' % PORT
     wsgi.WSGIServer(('', PORT), pcc10_handler).serve_forever()
