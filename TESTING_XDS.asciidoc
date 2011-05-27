@@ -2,7 +2,7 @@ Testing the XDS component of the icardea Interop. Framework
 ===========================================================
 :author: Stelios Sfakianakis
 :email:  ssfak@ics.forth.gr
-:revdate: April 2011
+:revdate: May 2011
 :revnumber: 0.6
 :toc:
 //:icons:

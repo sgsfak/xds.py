@@ -535,7 +535,7 @@ footnotes: function () {
 <span id="author">Stelios Sfakianakis</span><br />
 <span id="email"><tt>&lt;<a href="mailto:ssfak@ics.forth.gr">ssfak@ics.forth.gr</a>&gt;</tt></span><br />
 <span id="revnumber">version 0.7,</span>
-<span id="revdate">April 2011</span>
+<span id="revdate">May 2011</span>
 <div id="toc">
   <div id="toctitle">Table of Contents</div>
   <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
@@ -727,9 +727,7 @@ the query parameters/constraints that will be applied to the current
 and the future contents of the XDS repository. The results will be
 sent through one or more separate PCC-10 messages. So the PCC-09
 messages carry query parameters that specify what information should
-be sent in the future PCC-10 <span class="footnote"><br />[Quite astonishingly there&#8217;s no
-unsubscribe message, i.e. subscriptions (PCC-09) live forever! But see
-<a href="#manage_pcc">our approach</a>]<br /></span>. You can see how the PCC-09 should be
+be sent in the future PCC-10. You can see how the PCC-09 should be
 formatted <a href="http://wiki.ihe.net/index.php?title=PCC-9">here</a> but the most
 important information is the following:</p></div>
 <div class="ulist"><ul>
@@ -782,6 +780,7 @@ with the expeced addressing information is the following:</p></div>
 <div class="paragraph"><p>i.e. <tt>http://www.example.com:8080/pcc10</tt> is the (fictional) url where
 the Clinical Data source (the Update Broker combo in our case) will
 send the subsequent PCC-10 messages.</p></div>
+<div class="paragraph"><p>Deleting subscriptions is described <a href="#manage_pcc">here</a>.</p></div>
 <div class="sect2">
 <h3 id="_matching_pcc_9_requests_to_the_clinical_content">Matching PCC-9 requests to the clinical content</h3>
 <div class="paragraph"><p>How the Update Broker finds if it should send some PCC-10 messages in
@@ -815,7 +814,7 @@ is stored so that immediately all the "subscriptions" (PCC-9) are
 checked for match.</p></div>
 <div class="paragraph"><p>A final detail: in order for the Update Broker to check a document if
 it matches any of the existing subscriptions, the document should have
-been registered with <tt>text/xml</tt> MIME type in the XDS Registry.</p></div>
+been registered with the <tt>text/xml</tt> MIME type in the XDS Registry.</p></div>
 </div>
 <div class="sect2">
 <h3 id="manage_pcc">Managing subscriptions</h3>
@@ -866,6 +865,9 @@ DELETE the subscription. This can be used (programmatically) by the
 <div class="content">
 <pre><tt>curl -X DELETE http://localhost:9081/subscription/4d9b476b7d6a1d1f4c000001</tt></pre>
 </div></div>
+<div class="paragraph"><p>For testing purposes you can even delete the subscription from the
+web-based user interface of the Update Broker (e.g. at
+<a href="http://localhost:9081/">http://localhost:9081/</a>).</p></div>
 <div class="admonitionblock">
 <table><tr>
 <td class="icon">
@@ -876,12 +878,25 @@ DELETE the subscription. This can be used (programmatically) by the
 implementation does not support the DELETE method, you can use POST in
 the same url. You need though to supply an additional header: the
 <a href="http://code.google.com/apis/gdata/docs/2.0/basics.html#DeletingEntry">Google&#8217;s
-X-HTTP-Method-Override with value DELETE</a>. For example with
-cURL you can do it as follows:</p></div>
+X-HTTP-Method-Override with value DELETE</a>. For example with cURL you
+can do it as follows:</p></div>
 <div class="literalblock">
 <div class="content">
 <pre><tt>curl -X POST -H "X-HTTP-Method-Override: DELETE" http://localhost:9081/subscription/4d9b476b7d6a1d1f4c000001</tt></pre>
 </div></div>
+</td>
+</tr></table>
+</div>
+<div class="admonitionblock">
+<table><tr>
+<td class="icon">
+<div class="title">Note</div>
+</td>
+<td class="content">
+<div class="paragraph"><p>The "standard" approach for (temporarily?) deleting subscriptions is
+the
+<a href="http://wiki.ihe.net/index.php?title=PCC-1#General_Query_Query_Cancel">Query
+Cancel</a> message but this has not been implemented yet.</p></div>
 </td>
 </tr></table>
 </div>
@@ -914,7 +929,7 @@ different transactions in their own wiki pages:
 <div id="footer">
 <div id="footer-text">
 Version 0.7<br />
-Last updated 2011-05-27 09:37:33 GTB Daylight Time
+Last updated 2011-05-27 15:14:37 GTB Daylight Time
 </div>
 </div>
 </body>
