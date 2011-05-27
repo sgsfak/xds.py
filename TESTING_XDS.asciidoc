@@ -2,8 +2,8 @@ Testing the XDS component of the icardea Interop. Framework
 ===========================================================
 :author: Stelios Sfakianakis
 :email:  ssfak@ics.forth.gr
-:revdate: March 2011
-:revnumber: 0.5
+:revdate: April 2011
+:revnumber: 0.6
 :toc:
 //:icons:
 :data-uri:
@@ -21,9 +21,8 @@ running in the 'localhost' footnote:[In the following discussion all
 links etc. use the _localhost_ but of course you can use the host
 machine's IP address to access it from elsewhere]:
 
-* Launch (in the command line) the _mongod_ executable by issuing
-
- mongod --dbpath data --directoryperdb
+* Start the MongoDB server as described in the
+  link:INSTALL.html#run[INSTALL] file
 
 * Start XDS by issuing (in a command line window):
 

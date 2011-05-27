@@ -34,10 +34,10 @@ import tempfile
 import json
 import bson
 import socket
-
-# Configuration!!
-MY_REPO_ID= '1.3.6.1.4.1.21367.2008.1.2.700'
-MONGO_HOST = "localhost"
+from optparse import OptionParser
+import random
+# import mongo_utils
+from xds_config import *
 
 NS = {"soap":"http://www.w3.org/2003/05/soap-envelope", 
       "wsa":"http://www.w3.org/2005/08/addressing",
@@ -49,6 +49,7 @@ NS = {"soap":"http://www.w3.org/2003/05/soap-envelope",
       "xop":"http://www.w3.org/2004/08/xop/include",
       'hl7':'urn:hl7-org:v3',
       'xmlmime': 'http://www.w3.org/2004/11/xmlmime'
+      ,'wsnt': 'http://docs.oasis-open.org/wsn/b-2'
       }
 
 # The actions for the supported XDS transactions
@@ -101,6 +102,9 @@ SIGNS_CLASS = "urn:uuid:8ea93462-ad05-4cdc-8e54-a8084f6aff94"
 
 HASMEM_ASSOCTYPE = "urn:oasis:names:tc:ebxml-regrep:AssociationType:HasMember"
 RPLC_ASSOCTYPE = "urn:ihe:iti:2007:AssociationType:RPLC"
+
+# A quick (?) way to get (the first of) my IP address
+MYIP = socket.gethostbyname_ex(socket.gethostname())[2][0]
 
 def get_author(xml, scheme, obj):
         def cons_auth(class_xml):
@@ -390,7 +394,7 @@ def parse_content_type(ct):
 SUCCESS_RESULT_STATUS = "urn:oasis:names:tc:ebxml-regrep:ResponseStatusType:Success"
 FAILURE_RESULT_STATUS = "urn:oasis:names:tc:ebxml-regrep:ResponseStatusType:Failure"
 
-def handle_mtom_oper(msg):
+def handle_mtom_oper(moncon, msg):
         from lxml import etree
         msgs = msg.get_payload()
         xml = msgs[0].get_payload()
@@ -425,7 +429,7 @@ def handle_mtom_oper(msg):
                 sset = parse_provide_and_register(body)
                 docs = sset["docs"]
                 sset["docs"] = []
-                con = pymongo.Connection(host=MONGO_HOST)
+                mongoId = None
                 try:
                         for dId,doc in docs.items():
                                 doc_data = docs_data[dId]
@@ -434,10 +438,10 @@ def handle_mtom_oper(msg):
                                 print "wrote ", fn
                                 doc['size'] = doc_data['size']
                                 doc["hash"] = doc_data['hash']
-                                con.xds.docs.insert(doc)
+                                moncon.xds.docs.insert(doc, safe=True)
                                 sset['docs'].append(doc['entryUUID'])
                                 print 'Document',doc['entryUUID'], 'inserted'
-                        mongoId = con.xds.ssets.insert(sset)
+                        mongoId = moncon.xds.ssets.insert(sset, safe=True)
                         print 'submission',sset['entryUUID'], 'inserted'
                 except Exception, ex:
                         print "ERROR: %s" % ex
@@ -449,10 +453,10 @@ def handle_mtom_oper(msg):
                         # 
                         sset['id'] = str(mongoId)
                         del sset['_id']
-                        send_notification('submission', sset)
+                        send_submission_notification(sset) #send_notification('submission', sset)
                         print "NEW SUBMISSION PUSHED TO UB"
                 finally:
-                        con.disconnect()
+                        moncon.end_request()
                 RS = NS['rs']
                 res = etree.Element("{%s}RegistryResponse" % RS)
                 res.attrib['status'] = resultStatus
@@ -469,11 +473,10 @@ def handle_mtom_oper(msg):
                 XDSB = NS['xdsb']
                 res = etree.Element("{%s}RetrieveDocumentSetResponse" % XDSB)
                 resultStatus = SUCCESS_RESULT_STATUS
-                con = pymongo.Connection(host=MONGO_HOST)
                 from email.utils import make_msgid
                 try:
                         for uid in docUids:
-                                doc = con.xds.docs.find_one({"uniqueId": uid}, {"filename":1, "mimeType":1})
+                                doc = moncon.xds.docs.find_one({"uniqueId": uid}, {"filename":1, "mimeType":1})
                                 if not doc:
                                         print "Requested doc with uid ",uid, " was not found! (ignoring)"
                                         resultStatus = FAILURE_RESULT_STATUS
@@ -498,7 +501,7 @@ def handle_mtom_oper(msg):
                         print "ERROR: %s" % ex
                         resultStatus = FAILURE_RESULT_STATUS
                 finally:
-                        con.disconnect()
+                        moncon.end_request()
                 rr = etree.Element("{%s}RegistryResponse" % RS)
                 rr.attrib['status'] = resultStatus
                 res.insert(0, rr)
@@ -578,7 +581,7 @@ GETFOLDERANDCONTENTS_SQ = "urn:uuid:b909a503-523d-4517-8acf-8e5834dfc4c7"
 GETFOLDERSFORDOCUMENT_SQ = "urn:uuid:10cae35a-c7f9-4cf5-b61e-fc3278ffb578"
 GETRELATEDDOCUMENTS_SQ = "urn:uuid:d90e5407-b356-4d91-a89f-873917b4b0e6"
 
-def handle_simple_soap_oper(inp):
+def handle_simple_soap_oper(moncon, inp):
         root = etree.fromstring(inp)
         wact = root.xpath("/soap:Envelope/soap:Header/wsa:Action", 
                           namespaces=NS)[0]
@@ -623,8 +626,7 @@ def handle_simple_soap_oper(inp):
                         elif k.endswith('PatientId'):
                                 monqry['patientId']=v[0]
                 print "MONGO QUERY: ", monqry
-                con = pymongo.Connection(MONGO_HOST)
-                coll = searchSubmissions and con.xds.ssets or con.xds.docs
+                coll = searchSubmissions and moncon.xds.ssets or moncon.xds.docs
                 QNS = "{%s}" % NS['query']
                 RIM = "{%s}" % NS['rim']
                 xml = etree.Element(QNS+"AdhocQueryResponse")
@@ -642,7 +644,7 @@ def handle_simple_soap_oper(inp):
                                         xml_submission(rob, doc)
                                 else:
                                         xml_document(rob, doc)
-                con.disconnect()
+                moncon.end_request()
                 soap = build_soap_msg(resAct, wmesgid, xml)
                 response = etree.tostring(soap, pretty_print=False, 
                                           encoding='UTF-8',
@@ -654,6 +656,8 @@ def handle_simple_soap_oper(inp):
 
 class XDS_Handler:
         exposed = True
+        def __init__(self, mongoHost):
+                self.con = pymongo.Connection(host=mongoHost)
         def GET(self):
                 cherrypy.response.headers['Content-type'] = 'text/html'
                 return ["""<p>This is an <a href='http://www.ihe.net/'>IHE</a>
@@ -664,40 +668,35 @@ Some links to begin with:</p>
 <li><a href='http://wiki.ihe.net/index.php?title=XDS.b'>XDS implementation</a></li>
 </ul>
 <p>
- &copy; 2010 FORTH-ICS All rights reserved.
+ &copy; 2010-2011 FORTH-ICS All rights reserved.
 """]
         def POST(self):
                 print "TE: "+cherrypy.request.headers.get('TRANSFER-ENCODING', "")
                 headers = cherrypy.request.headers
                 reqfile = cherrypy.request.rfile
-                cl = int(headers.get('Content-Length', 0))
                 maxlen = 10 * 1024 * 1024
-                if cl > maxlen:
-                        raise cherrypy.HTTPError("413 Request Entity Too Large")
                 ct = headers['Content-Type']
                 print "GOT Content-type:",ct
                 d = parse_content_type(ct)
                 if d['content_type']=='multipart/related':
-                        if cl == 0:
-                                from ChunkedRFile import ChunkedRFile
-                                print 'OH no! reading chunked request!!'
-                                cl = maxlen
-                                reqfile = ChunkedRFile(reqfile, cl)
-                        data = reqfile.read(cl)
-                        reqfile.close()
-                        with open('mtom.dat', 'wb') as fp:
-                                fp.write(data)
-                        fp = email.parser.FeedParser()
-                        fp.feed("Content-type: "+ct+"\r\n")
+                    fp = email.parser.FeedParser()
+                    fp.feed("Content-type: "+ct+"\r\n")
+                    while True:
+                        data = reqfile.read(4096)
+                        if data == '':
+                            break
                         fp.feed(data)
-                        msg = fp.close()
-                        for chunk in handle_mtom_oper(msg):
-                                yield chunk
+                    msg = fp.close()
+                    for chunk in handle_mtom_oper(self.con, msg):
+                        yield chunk
                 else:
+                    cl = int(headers.get('Content-Length', 0))
+                    if cl == 0:
+                        data = reqfile.read()
+                    else:
                         data = reqfile.read(cl)
-                        # print "GOT SOAP:\n", data
-                        yield handle_simple_soap_oper(data)
-
+                    yield handle_simple_soap_oper(self.con, data)
+                    
 # See http://goo.gl/NQZX
 PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
                         ,'MEDCCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.5'
@@ -714,10 +713,13 @@ PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
                         , 'HISTMEDLIST':'1.3.6.1.4.1.19376.1.5.3.1.4.7'
                         , 'IMMUCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.12'
                         , 'PSVCCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.14' # XXX
+                        , '*':'*' #My extension to get all entries!!
                         }
 # See <http://wiki.ihe.net/index.php?title=PCC-9>
 class PCC9_Handler:
         exposed = True
+        def __init__(self, mongoHost):
+                self.con = pymongo.Connection(host=mongoHost)
         def GET(self):
                 cherrypy.response.headers['Content-Type'] = 'text/html'
                 return ["""<p>This is an <a href='http://www.ihe.net/'>IHE</a> PCC-CM server 
@@ -728,20 +730,16 @@ Some links to begin with:</p>
 <li><a href='http://wiki.ihe.net/index.php?title=PCC_TF-2'>PCC TF-2</a></li>
 </ul>
 <p>
- &copy; 2010 FORTH-ICS All rights reserved.
+ &copy; 2010-2011 FORTH-ICS All rights reserved.
 """]
         def POST(self):
                 reqfile = cherrypy.request.rfile
                 headers = cherrypy.request.headers
                 cl = int(headers.get('Content-Length', 0))
-                maxlen = 10 * 1024 * 1024
                 if cl == 0:
-                        from ChunkedRFile import ChunkedRFile
-                        print 'OH no! reading chunked request!!'
-                        cl = maxlen
-                        reqfile = ChunkedRFile(reqfile, cl)
-                data = reqfile.read(cl)
-                print 'Got data\n',data
+                    data = reqfile.read()
+                else:
+                    data = reqfile.read(cl)
                 root = etree.fromstring(data)
                 l = root.xpath('/soap:Envelope/soap:Header/wsa:ReplyTo/wsa:Address', namespaces=NS)
                 if len(l) == 0:
@@ -750,6 +748,7 @@ Some links to begin with:</p>
                 else:
                         endpoint = l[0].text
                 errors = []
+                mongoId = None
                 while True:
                         l = root.xpath('//hl7:QUPC_IN043100UV01', namespaces=NS)
                         if len(l) == 0:
@@ -761,13 +760,57 @@ Some links to begin with:</p>
                                 errors.append({'code':'ILLEGAL',
                                                'text': 'Error, you need to send a PCC 09 xml message (no parameter list!)'})
                                 break
+                        # SRDC Start
                         m = pcc9.xpath('hl7:controlActProcess/hl7:id/@extension', namespaces=NS)
+			queryId = "0"
                         if len(m) == 0:
-                                errors.append({'code':'ILLEGAL',
-                                               'text': 'Error, you need to send a PCC 09 xml message (no query id in the controlAct!)'})
-                                break
-                        queryId = m[0]
+				t = l[0].xpath("hl7:careProvisionCode/hl7:value/@code", namespaces=NS)
+				if len(t)==0:
+                                        errors.append({'code':'ILLEGAL',
+                                                       'text': 'Error, you need to send a PCC 09 xml message (no careProvisionCode!)'})
+                                        break
+                                if t[0] not in PCODES_TEMPLATE_IDS:
+                                        errors.append({'code':'CODE_INVALID',
+                                                       'text': 'careProvisionCode'})
+                                        break
+				if t[0] == "9279-1":
+					queryId = 1
+				elif t[0] == "COBSCAT":
+					queryId = 2
+				elif t[0] == "MEDCCAT":
+					queryId = 3
+				elif t[0] == "CONDLIST":
+					queryId = 4
+				elif t[0] == "PROBLIST":
+					queryId = 5
+				elif t[0] == "INTOLIST":
+					queryId = 6
+				elif t[0] == "RISKLIST":
+					queryId = 7
+				elif t[0] == "LABCAT":
+					queryId = 8
+				elif t[0] == "DICAT":
+					queryId = 9
+				elif t[0] == "RXCAT":
+					queryId = 10
+				elif t[0] == "MEDLIST":
+					queryId = 11
+				elif t[0] == "CURMEDLIST":
+					queryId = 12
+				elif t[0] == "DISCHMEDLIST":
+					queryId = 13
+				elif t[0] == "HISTMEDLIST":
+					queryId = 14
+				elif t[0] == "IMMUCAT":
+					queryId = 15
+				else:
+					queryId = 16
+                                queryId = str(queryId)
+			else:
+                                queryId = m[0]
+			# SRDC End
                         con = None
+                        worker_port = None
                         try:
                                 pl = l[0]
                                 subscription = {'endpoint_': endpoint, 'lastChecked_':0, 'queryId':queryId}
@@ -821,38 +864,50 @@ Some links to begin with:</p>
                                                                'text': 'clinicalStatementTimePeriod'})
                                                 break
                                         subscription['clinicalStatementTimePeriod'] = {'low':low, 'high':high}
-                                con = pymongo.Connection(host=MONGO_HOST)
-                                coll = con.xds.pcc
-                                mongoId = coll.insert( subscription )
+                                subscription['storedAt_'] = time.time()
+                                coll = self.con.xds.pcc
+                                mongoId = coll.insert( subscription, safe=True )
                                 print "New subscription %s stored in DB" % mongoId
                                 # 
                                 # Send notification to the UpdateBroker through Redis
                                 subscription['id'] = str(mongoId)
                                 del subscription['_id']
-                                send_notification('subscription', subscription)
-                                print "New subscription %s pushed to UB" % mongoId
+                                worker_port = send_subscription_notification(subscription)
+                                print "New subscription %s pushed to UB at %s" % (mongoId, worker_port)
+                        except pymongo.errors.ConnectionFailure, ex:
+                                print "MONGO DB connection failure!!"
                         except Exception, ex:
                                 print "Unexpected error:", str(ex)
                                 errors.append({'code':'ISSUE',
                                                'text': "Unexpected error:%s" % (ex,)})
                         finally:
-                                if con is not None:
-                                        con.disconnect()
+                                self.con.end_request()
                         break
                 cherrypy.response.headers['Content-Type'] = 'application/soap+xml'
                 typecode = 'AR' if len(errors) > 0 else 'AA'
+                subRef = ''
+                if mongoId is not None:
+                    subEndpoint = 'http://%s:%s/subscription/%s' % (MYIP, worker_port-1, str(mongoId))
+                    subRef = '''
+                    <wsnt:SubscriptionReference xmlns:wsnt="%s">
+                    <wsa:Address xmlns:wsa="%s">%s</wsa:Address>
+                    </wsnt:SubscriptionReference>''' % (NS['wsnt'], NS['wsa'], subEndpoint)
                 ackDetail = ''
                 if len(errors)>0:
-                        ackDetail = """
+                    print errors[0]
+                    ackDetail = """
                         <acknowledgementDetail typeCode='E'>
                           <code code='%(code)s' displayName=' ' codeSystem='2.16.840.1.113883.5.1100'
                                 codeSystemName='AcknowledgementDetailCode'/>
-                          <text>%(text)</text>
+                          <text>%(text)s</text>
                           <location></location>
                         </acknowledgementDetail>""" % errors[0]
                 ts = time.strftime('%Y%m%d%H%M%S',time.gmtime())
                 ackId = uuid.uuid4().hex
                 return ["""<s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope'>
+ <s:Header>
+  %s
+ </s:Header>
  <s:Body>
     <MCCI_IN000002UV01 ITSVersion='XML_1.0' xmlns='urn:hl7-org:v3'>
 	<id root='' extension='%s'/>
@@ -874,18 +929,19 @@ Some links to begin with:</p>
           %s
         </acknowledgement>
    </MCCI_IN000002UV01>
-</s:Body></s:Envelope>""" % (ackId, ts, typecode, ackDetail)]
+</s:Body></s:Envelope>""" % (subRef, ackId, ts, typecode, ackDetail)]
 
 class DocsHandler:
         exposed = True
+        def __init__(self, mongoHost):
+                self.con = pymongo.Connection(host=mongoHost)
         def GET(self, docid=None, cnt = None):
                 max = int(cnt) if cnt else 50
                 try:
-                        con = pymongo.Connection(MONGO_HOST)
                         if not docid:
-                                crs = con.xds.docs.find(fields=['entryUUID','patientId'],
-                                                        sort=[('storedAt_', pymongo.DESCENDING)],
-                                                        limit=max)
+                                crs = self.con.xds.docs.find(fields=['entryUUID','patientId'],
+                                                             sort=[('storedAt_', pymongo.DESCENDING)],
+                                                             limit=max)
                                 lis = "\n".join(["<li><a href='./%s'>%s</a> (patient:'<b>%s</b>')</li>"
                                                  % (d['entryUUID'],d['entryUUID'], d.get('patientId', '') )
                                                  for d in crs])
@@ -895,10 +951,10 @@ class DocsHandler:
                                 </body>
                                 </html>""" % (max, lis)
                         else:
-                                d = con.xds.docs.find_one({'entryUUID':docid})
+                                d = self.con.xds.docs.find_one({'entryUUID':docid})
                                 if not d:
                                         cherrypy.notfound()
-                                from bson import json_util
+                                from pymongo import json_util
                                 s = json.dumps(d, default=json_util.default, sort_keys=True, indent = 4)
                                 return """<html><head><title>XDS repository: docs recently submitted</title></head>
                                 <body><h1>Document %s</h1>
@@ -911,27 +967,40 @@ class DocsHandler:
                         print "ERROR: %s" % (ex)
                         raise cherrypy.HTTPError()
                 finally:
-                        if con:
-                                con.disconnect()
+                        self.con.end_request()
+                                
+def send_notification(port, type, sub):
+    from socket import socket, AF_INET,SOCK_STREAM
+    msg = {'type':type, 'payload': sub}
+    data = bson.BSON.encode(msg)
+    addr = ('localhost', port)
+    sock = socket(AF_INET, SOCK_STREAM)
+    try:
+        sock.connect(addr)
+        sock.send(data)
+    except Exception, ex:
+        print "ERROR (send notification): %s" % ex
+    finally:
+        sock.close()
 
-NOTIFY_PORT = 9082
-def send_notification(type, sub):
-        from socket import socket, AF_INET,SOCK_STREAM
-        msg = {'type':type, 'payload': sub}
-        data = bson.BSON.encode(msg)
-        addr = ('localhost', NOTIFY_PORT)
-        sock = socket(AF_INET, SOCK_STREAM)
-        try:
-                sock.connect(addr)
-                sock.send(data)
-        except Exception, ex:
-                print "ERROR (send notification): %s" % ex
-
+# See Avoiding TCP/IP Port exhaustion in Windows
+# http://goo.gl/E1xsa
+def send_subscription_notification(sub):
+        workers = cherrypy.config['icardea_interop'].notify_ports
+        w = random.choice(workers)
+        print 'pushing subscription to ', w 
+        send_notification(w, 'subscription', sub)
+        return w
+        
+def send_submission_notification(sset):
+        workers = cherrypy.config['icardea_interop'].notify_ports
+        for w in workers:
+                print 'pushing sset to ', w 
+                send_notification(w, 'submission', sset)
 class EHRInteropApp:
         exposed = True
-        pcc = PCC9_Handler()
-        xds = XDS_Handler()
-        docs = DocsHandler()
+        def __init__(self, options):
+                self.options = options
         def GET(self):
                 headers = cherrypy.request.headers
                 myhost = socket.gethostbyname(socket.getfqdn())
@@ -939,7 +1008,10 @@ class EHRInteropApp:
                 if headers.has_key('X-Forwarded-Host'):
                         host = headers['X-Forwarded-Host']
                         proto = 'https' if headers.has_key('X-Forwarded-Ssl') else 'http'
-                        base = proto +'://' + host + '/icardea'                        
+                        base = proto +'://' + host + '/icardea'
+                wor_base = cherrypy.request.scheme +'://' + myhost
+                hs = ', '.join("<a href='%s:%s/'>worker %s</a>" % (wor_base, w-1, i+1)
+                               for i, w in enumerate(self.options.notify_ports))
                 return ["""<html>
  <head><title>iCARDEA EHR interoperability Framework </title></head>
  <body>
@@ -957,16 +1029,15 @@ class EHRInteropApp:
 
  </ul>
  <p> Also for debugging purposes you can see:
- <ul><li>The
- <a href='%s:9081/'>current PCC-CM "subscriptions"</a></li>
+ <ul><li>The current PCC-CM "subscriptions": %s</li>
  <li>The
  <a href='docs/'>the most recent documents submitted</a></li>
  <li>The
  <a href='xdsdb/'>whole XDS database as stored in the filesystem</a></li>
  </ul>
 
- &copy; 2010 FORTH-ICS All rights reserved.
- </body></html>""" % (base, base, cherrypy.request.scheme +'://' + myhost)]
+ &copy; 2010-2011 FORTH-ICS All rights reserved.
+ </body></html>""" % (base, base, hs)]
 
 # cherrypy needs an absolute path when dealing wwith static data
 current_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "")
@@ -989,17 +1060,41 @@ conf = {
         }
 }
 
-cherrypy.config.update({'global':{
-        'server.socket_port': 9080,
-        'server.socket_host': '0.0.0.0',
-        'engine.autoreload_on' : True,
-        'log.screen': True
-        }})
 
 def _process_request_body_hook():
         cherrypy.request.process_request_body = False
 
 cherrypy.request.hooks.attach('before_request_body', _process_request_body_hook)
-app = cherrypy.tree.mount(EHRInteropApp(), '/', config=conf)
+#app = cherrypy.tree.mount(EHRInteropApp(), '/', config=conf)
+def parse_options():
+    parser = OptionParser(usage = "usage: %prog [options]")
+    parser.set_defaults(port = XDS_LISTEN_PORT, mongohost = MONGO_HOST, notify_ports=[])
+    parser.add_option("-p", "--port", action="store", dest="port", type="int",
+                      help='The TCP port for the XDS server to use. Default: %s'% XDS_LISTEN_PORT)
+    parser.add_option("-m", "--mongohost", action="store", dest="mongohost", type="string",
+                      help='The hostname/IP address of MongoDB. Default: %s'% MONGO_HOST )
+    parser.add_option("-n", action="append", dest="notify_ports", type="int",
+                      help='The TCP port that the UB listens to. Use 0 to deactivate. Multiple values allowed.Default: %s'% UB_LISTEN_PORT)
+    (options, args) = parser.parse_args()
+    if len(options.notify_ports) == 0:
+            options.notify_ports = [UB_NOTIFY_PORT]
+    elif options.notify_ports[0] == 0:
+            options.notify_ports = []
+    return options
+
 if __name__ == "__main__":
-        cherrypy.quickstart(EHRInteropApp(), '/', config=conf)
+        options = parse_options()
+        cherrypy.config.update({'global':{
+                'server.socket_port': options.port,
+                'server.socket_host': '0.0.0.0',
+                'engine.autoreload_on' : True,
+                'log.screen': True
+                }})
+        cherrypy.config.update({'icardea_interop': options})
+        root = EHRInteropApp(options)
+        root.pcc = PCC9_Handler(options.mongohost)
+        root.xds = XDS_Handler(options.mongohost)
+        root.docs = DocsHandler(options.mongohost)
+        print "Listening on %s .. sending notifications in %s" % (options.port,
+                                                                  ','.join(str(w) for w in options.notify_ports))
+        cherrypy.quickstart(root, '/', config=conf)

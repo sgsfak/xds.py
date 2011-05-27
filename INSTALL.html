@@ -534,8 +534,8 @@ footnotes: function () {
 <h1>Installation and Configuration for the icardea Interop. Framework</h1>
 <span id="author">Stelios Sfakianakis</span><br />
 <span id="email"><tt>&lt;<a href="mailto:ssfak@ics.forth.gr">ssfak@ics.forth.gr</a>&gt;</tt></span><br />
-<span id="revnumber">version 0.7,</span>
-<span id="revdate">March 2011</span>
+<span id="revnumber">version 0.8,</span>
+<span id="revdate">April 2011</span>
 <div id="toc">
   <div id="toctitle">Table of Contents</div>
   <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
@@ -647,7 +647,7 @@ easy_install gevent</tt></pre>
 <div class="ulist"><ul>
 <li>
 <p>
-Change the line "MONGO_HOST=&#8230;" in <tt>ub.py</tt> and <tt>xds.py</tt> if mongodb is
+Change the line "MONGO_HOST=&#8230;" in <tt>xds_config.py</tt> if mongodb is
   installed in a different machine instead of localhost.
 </p>
 </li>
@@ -664,7 +664,7 @@ Change the configuration in the file <tt>config.ini</tt> in the <tt>hl7</tt> fol
 </ul></div>
 </div>
 <div class="sect2">
-<h3 id="_run">Run</h3>
+<h3 id="run">Run</h3>
 <div class="ulist"><ul>
 <li>
 <p>
@@ -685,7 +685,9 @@ Create a <tt>data</tt> subdirectory inside the <tt>bin</tt> folder. This is the
 <li>
 <p>
 Create a <tt>mongodb.conf</tt> with the following contents (you need to
-    adjust properly for the <em>dbpath</em> variable):
+    adjust properly for the <em>dbpath</em> variable, see
+    <a href="http://www.mongodb.org/display/DOCS/File+Based+Configuration">here</a>
+    for more details):
 </p>
 <div class="literalblock">
 <div class="content">
@@ -706,7 +708,8 @@ Launch (in the command line) the <em>mongod</em> executable by issuing
 </li>
 <li>
 <p>
-You 're ready!
+You 're ready! You can also check the web interface of MongoDB at
+    <a href="http://localhost:28017/">http://localhost:28017/</a> to see its status.
 </p>
 </li>
 </ol></div>
@@ -724,7 +727,7 @@ You 're ready!
 run as a service</a>:</p></div>
 <div class="literalblock">
 <div class="content">
-<pre><tt>mongod --dbpath &lt;full path to the data folder&gt; --logpath &lt;full path to a log file&gt; --logappend --directoryperdb --install</tt></pre>
+<pre><tt>mongod --journal --dbpath &lt;full path to the data folder&gt; --logpath &lt;full path to a log file&gt; --logappend --directoryperdb --install</tt></pre>
 </div></div>
 <div class="paragraph"><p>You can then start it from the Windows Services settings
 application or by issuing</p></div>
@@ -770,8 +773,8 @@ Start Update Broker by issuing (in a command line window):
 <div id="footnotes"><hr /></div>
 <div id="footer">
 <div id="footer-text">
-Version 0.7<br />
-Last updated 2011-03-29 18:30:04 GTB Daylight Time
+Version 0.8<br />
+Last updated 2011-05-26 17:02:40 GTB Daylight Time
 </div>
 </div>
 </body>

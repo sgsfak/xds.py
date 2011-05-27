@@ -2,8 +2,8 @@ Installation and Configuration for the icardea Interop. Framework
 =================================================================
 :author: Stelios Sfakianakis
 :email:  ssfak@ics.forth.gr
-:revdate: March 2011
-:revnumber: 0.7
+:revdate: April 2011
+:revnumber: 0.8
 :toc:
 //:icons:
 :data-uri:
@@ -68,13 +68,14 @@ CAUTION: As described http://blog.mongodb.org/post/137788967[here]
 
 === Configuration
 
-* Change the line "MONGO_HOST=..." in +ub.py+ and +xds.py+ if mongodb is
+* Change the line "MONGO_HOST=..." in +xds_config.py+ if mongodb is
   installed in a different machine instead of localhost.
 
 * Change the configuration in the file +config.ini+ in the +hl7+ folder
 
 * ...
 
+[[run]]
 === Run
 
 * First of all you have to launch the mongodb database server. You
@@ -88,7 +89,9 @@ CAUTION: As described http://blog.mongodb.org/post/137788967[here]
     _dbpath_ and all the MongoDB databases will be persisted there.
 
  .. Create a +mongodb.conf+ with the following contents (you need to
-    adjust properly for the _dbpath_ variable):
+    adjust properly for the _dbpath_ variable, see
+    http://www.mongodb.org/display/DOCS/File+Based+Configuration[here]
+    for more details):
 
  journal = true
  dbpath = C:\mongodb\bin\data
@@ -99,7 +102,8 @@ CAUTION: As described http://blog.mongodb.org/post/137788967[here]
 
  mongod -f mongodb.conf
 
- .. You 're ready!
+ .. You 're ready! You can also check the web interface of MongoDB at
+    http://localhost:28017/ to see its status.
 
 .Running MongoDB as Windows Service
 [TIP]
@@ -108,7 +112,7 @@ In Windows you can
 http://www.mongodb.org/display/DOCS/Windows+Service[install MongoDB to
 run as a service]:
 
-  mongod --dbpath <full path to the data folder> --logpath <full path to a log file> --logappend --directoryperdb --install
+  mongod --journal --dbpath <full path to the data folder> --logpath <full path to a log file> --logappend --directoryperdb --install
 
 You can then start it from the Windows Services settings
 application or by issuing

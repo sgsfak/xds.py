@@ -2,8 +2,8 @@ Testing the PCC functionality of the icardea Interop. Framework
 ===============================================================
 :author: Stelios Sfakianakis
 :email:  ssfak@ics.forth.gr
-:revdate: March 2011
-:revnumber: 0.5
+:revdate: April 2011
+:revnumber: 0.7
 :toc:
 :data-uri:
 :lang: en
@@ -78,12 +78,14 @@ waits for PCC-10 messages. You can find its parameters as follows:
 
  Options:
   -h, --help            show this help message and exit
-  -p PATIENT_ID         the patient id. Default: pat1234
+  -p PATIENT_ID         the patient id. Default: *
   -c PROVISION_CODE     the care provision code (See http://goo.gl/lSMg)
                         Default:MEDLIST
   -s SERVER, --data-source=SERVER
                         the Data Source endpoint (where the PCC-9 will be send
                         to) Default: http://localhost:9080/pcc/
+  -n NBR                Submit that many subscriptions. Used for
+                        benchmarking... Default: 1
 
 The default options are fine for the current test and after you launch it
 (assuming that Mongo, XDS, and the Update Broker are also running) you
@@ -135,10 +137,10 @@ and the future contents of the XDS repository. The results will be
 sent through one or more separate PCC-10 messages. So the PCC-09
 messages carry query parameters that specify what information should
 be sent in the future PCC-10 footnote:[Quite astonishingly there's no
-unsubscribe message, i.e. subscriptions (PCC-09) live forever!]. You
-can see how the PCC-09 should be formatted
-http://wiki.ihe.net/index.php?title=PCC-9[here] but the most important
-information is the following:
+unsubscribe message, i.e. subscriptions (PCC-09) live forever! But see
+<<manage_pcc,our approach>>]. You can see how the PCC-09 should be
+formatted http://wiki.ihe.net/index.php?title=PCC-9[here] but the most
+important information is the following:
 
 * The http://goo.gl/DduTH[patient id] that specifies the patient that
   specifies the patient that the Care Manager is interested in. This
@@ -212,11 +214,65 @@ following is such an observation:
 
 The Update Broker is notified by the XDS Registry when a new document
 is stored so that immediately all the "subscriptions" (PCC-9) are
-checked if match. 
+checked for match. 
 
 A final detail: in order for the Update Broker to check a document if
 it matches any of the existing subscriptions, the document should have
-been registered with +text/xml+ MIME type in the XDS Registry.
+been registered with the +text/xml+ MIME type in the XDS Registry.
+
+[[manage_pcc]]
+=== Managing subscriptions
+
+In the PCC-9 Response document the Care Manager gets an endpoint
+reference in the SOAP Header that is formatted according to the
+http://docs.oasis-open.org/wsn/wsn-ws_base_notification-1.3-spec-os.htm[WS-Base
+Notification], like this:
+
+ <s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope'>
+  <s:Header>
+        <wsnt:SubscriptionReference 
+                       xmlns:wsnt="http://docs.oasis-open.org/wsn/b-2">
+          <wsa:Address xmlns:wsa="http://www.w3.org/2005/08/addressing">
+             http://localhost:9081/subscription/4d9b476b7d6a1d1f4c000001
+          </wsa:Address>
+        </wsnt:SubscriptionReference>
+ </s:Header>
+ ...
+
+This _subscription reference_ is the resource (in the
+http://en.wikipedia.org/wiki/Representational_State_Transfer[REST]
+sense) that can be used for managing the PCC-9 subscription. Currently
+the Care Manager is able to use the GET and DELETE
+http://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods[HTTP
+methods] in order to
+
+* GET the subscription. The returned representation is in
+  http://en.wikipedia.org/wiki/JSON[JSON] format. This is useful
+  mainly for debugging purposes since the returned entity is the
+  subscription as stored in the MongoDB and you can use your browser
+  to see it.
+
+* DELETE the subscription. This can be used (programmatically) by the
+  Care Manager in order to remove the subscription in case it's not
+  needed any more.
+
+For example from the command line you can use
+http://curl.haxx.se/[cURL] to delete the subscription like this:
+
+ curl -X DELETE http://localhost:9081/subscription/4d9b476b7d6a1d1f4c000001
+
+[NOTE]
+===============================
+In case that HTTP library that you use in your Care Manager
+implementation does not support the DELETE method, you can use POST in
+the same url. You need though to supply an additional header: the
+http://code.google.com/apis/gdata/docs/2.0/basics.html#DeletingEntry[Google's
+X-HTTP-Method-Override with value DELETE]. For example with
+cURL you can do it as follows: 
+
+ curl -X POST -H "X-HTTP-Method-Override: DELETE" http://localhost:9081/subscription/4d9b476b7d6a1d1f4c000001
+
+===============================
 
 == Appendix: Documents of interest
 
