@@ -1,0 +1,21 @@
+{% extends "soap.xml" %}
+{% block soapBody %}
+<MCCI_IN000002UV01 ITSVersion='XML_1.0' xmlns='urn:hl7-org:v3'>
+  <id root='' extension='{{ackId}}'/>
+  <creationTime value='{{hl7MsgTime}}'/>
+  <interactionId extension='MCCI_IN000002UV01' root='2.16.840.1.113883.5'/>
+  <processingModeCode code='T'/> <!-- T means current processing -->
+  <acceptAckCode code='NE'/>
+  <receiver typeCode='RCV'>
+    <device classCode='DEV' determinerCode='INSTANCE'>
+      <id/>
+    </device>
+  </receiver>
+  <sender typeCode='RCV'>
+    <device classCode='DEV' determinerCode='INSTANCE'>
+      <id/>
+    </device>
+  </sender>
+  <acknowledgement typeCode='{{ackTypeCode}}'/>
+</MCCI_IN000002UV01>
+{% endblock %}

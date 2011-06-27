@@ -1,0 +1,79 @@
+{% extends "soap.xml" %}
+{% block soapBody %}
+<QUPC_IN043200UV01 xmlns='urn:hl7-org:v3' ITSVersion='XML_1.0'
+                   xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'>
+  <id root='1' extension='1'/>
+  <creationTime value='{{hl7MsgTime|d('201011111111')}}'/>
+  <interactionId extension='QUPC_IN043200UV' root='2.16.840.1.113883.5'/>
+  <processingCode code='D'/>
+  <processingModeCode code='T'/>
+  <acceptAckCode code='AL'/>
+  <receiver typeCode="RCV">
+    <device determinerCode='INSTANCE'>
+      <id/>
+      <name/>
+      <telecom value='1' />
+      <manufacturerModelName/>
+      <softwareName/>
+    </device>
+  </receiver>
+  <sender typeCode="SND">
+    <device determinerCode='INSTANCE'>
+      <id root="1" extension="EHR"/>
+      <name/>
+      <telecom value='1' />
+      <manufacturerModelName/>
+      <softwareName/>
+    </device>
+  </sender>
+  <controlActProcess moodCode='EVN'>
+    <id extension='1'/>
+    <code code='QUPC_TE043200UV'/>
+    <effectiveTime value='1'/>
+    <authorOrPerformer typeCode='1'></authorOrPerformer>
+    <subject>
+      <registrationEvent>
+	<statusCode code='active'/>
+	<custodian>
+	  <assignedEntity>
+	    <id root='1' extension='1'/>
+	    <addr></addr>
+	    <telecom></telecom>
+	    <assignedOrganization>
+	      <name></name>
+	    </assignedOrganization>
+	  </assignedEntity>
+	</custodian>
+	<subject2>
+	  <careProvisionEvent>
+	    <recordTarget>
+             <patient>
+		<id root='{{patId.root}}' extension='{{patId.pid}}'/>
+		<addr></addr>
+		<telecom value='1' use='1'/>
+		<statusCode code='active'/>
+                <patientPerson>
+                  <name>
+                       <given>{{patName.given|e}}</given>
+                       <family>{{patName.family|e}}</family>
+                  </name>
+                </patientPerson>
+	      </patient>
+	    </recordTarget>
+            {% for pi in pertInfo %}
+            <pertinentInformation3>{{pi}}</pertinentInformation3>
+            {% endfor %}
+          </careProvisionEvent>
+	</subject2>
+      </registrationEvent>
+    </subject>
+    <queryAck>
+      <queryId extension='{{queryId|e}}'/>
+      <statusCode code='1'/>
+      <queryResponseCode code='1'/>
+      <resultCurrentQuantity value='1'/>
+      <resultRemainingQuantity value='1'/>
+    </queryAck>
+  </controlActProcess>
+</QUPC_IN043200UV01>
+{% endblock %}

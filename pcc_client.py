@@ -2,7 +2,7 @@
 """A PCC-10 server example"""
 
 from gevent import monkey; monkey.patch_all()
-from gevent import wsgi
+from gevent import pywsgi
 from optparse import OptionParser
 from lxml import etree
 import urllib2
@@ -10,6 +10,7 @@ import socket
 import sys
 import time
 import uuid
+import jinja2
 
 PATH = '/pcc10/'
 MYIP = socket.gethostbyname_ex(socket.gethostname())[2][0]
@@ -26,64 +27,45 @@ SERVER = 'http://localhost:9080/pcc/'
 CARE_PROVISION_CODE = 'MEDLIST'
 PATIENT_ID = '*'
 
-def build_soap_msg(body, replyAddr = None, action = PCC9_ACTION, relTo = None):
-    SOAP = "{%s}" % NS['soap']
-    WSA = "{%s}" % NS['wsa']
-    env = etree.Element(SOAP+"Envelope", nsmap=NS)
-    hdr = etree.SubElement(env, SOAP+"Header")
-    msg = etree.SubElement(hdr, WSA+"MessageID")
-    msg.text = uuid.uuid4().urn
-    act = etree.SubElement(hdr, WSA+"Action")
-    act.set(SOAP+"mustUnderstand", "true")
-    act.text = action
-    if replyAddr is not None:
-        rt = etree.SubElement(hdr, WSA+"ReplyTo")
-        radd = etree.SubElement(rt, WSA+"Address")
-        radd.text = replyAddr
-    if relTo is not None:
-        rt = etree.SubElement(hdr, WSA+"RelatesTo")
-        rt.text = relTo
-    bd = etree.SubElement(env, SOAP+"Body")
-    bd.append(body)
-    return env
+jinja2_env = jinja2.Environment(loader=jinja2.FileSystemLoader('templates'))
 
 def build_pcc10_ack():
     ts = time.strftime('%Y%m%d%H%M%S',time.gmtime())
     ackId = uuid.uuid4().hex
     typecode = 'AA'
-    pcc10_ack = """
-    <MCCI_IN000002UV01 ITSVersion='XML_1.0' xmlns='urn:hl7-org:v3'>
-	<id root='' extension='%s'/>
-	<creationTime value='%s'/>
-        <interactionId extension='MCCI_IN000002UV01' root='2.16.840.1.113883.5'/>
-        <processingModeCode code='T'/> <!-- T means current processing -->
-	<acceptAckCode code='NE'/>
-	<receiver typeCode='RCV'>
-		<device classCode='DEV' determinerCode='INSTANCE'>
-			<id/>
-		</device>
-	</receiver>
-	<sender typeCode='RCV'>
-		<device classCode='DEV' determinerCode='INSTANCE'>
-			<id/>
-		</device>
-	</sender>
-        <acknowledgement typeCode='%s'/>
-    </MCCI_IN000002UV01>""" % (ackId, ts, typecode)
-    
-    return build_soap_msg(etree.fromstring(pcc10_ack),
-                          action = PCC10_ACK_ACTION)
+    tmpl = jinja2_env.get_template('pcc10_ack.xml')
+    soap = tmpl.render(wsaAction = PCC10_ACK_ACTION,
+                       ackId=ackId, hl7MsgTime=ts, ackTypeCode=typecode)
+    return soap
 
-def send_pcc9(server_url, callback_url, pcc9):
-    soap = build_soap_msg( etree.fromstring(pcc9), replyAddr = callback_url)
+def parsePid(patientId):
+    delim = '^^^&' # see http://is.gd/fNUSv (search for sourcePatientInfo)
+    pid = patientId
+    pidroot = ''
+    i = patientId.find(delim)
+    if i>0:
+        pid = patientId[:i]
+        i += len(delim)
+        j = patientId.find('&ISO', i)
+        pidroot = patientId[i:j] if j > 0 else patientId[i:]
+    return {'pid':pid, 'root':pidroot}
+
+def send_pcc9(server_url, callback_url, provisionCode, patientId):
+    pcc9_tmpl = jinja2_env.get_template('pcc9.xml')
+    ts = time.strftime('%Y%m%d%H%M%S', time.gmtime())
+    soap = pcc9_tmpl.render(wsaAction = PCC9_ACTION,
+                            wsaReplyTo = callback_url,
+                            careProvisionCode = provisionCode,
+                            patId = parsePid(patientId),
+                            hl7MsgTime = ts)
     req = urllib2.Request(server_url)
     req.add_header('content-type',
                    'application/soap+xml;charset=utf-8;action="%s"' % (PCC9_ACTION,))
-    req.add_data(etree.tostring(soap, encoding='utf-8'))
+    req.add_data(soap)
     try:
         fp = urllib2.urlopen(req)
         response = fp.read()
-        # print 'SUBMITTED PCC-9 AND GOT\n',response
+        print 'SUBMITTED PCC-9 AND GOT\n',response
         x = etree.fromstring(response)        
         l = x.xpath("/soap:Envelope/soap:Header/wsnt:SubscriptionReference/wsa:Address",
                     namespaces=NS)
@@ -108,12 +90,13 @@ def pcc10_handler(env, start_response):
     elif env['PATH_INFO'] == PATH:
         msg = env['wsgi.input'].read()
         print 'I got new PCC-10!!'
-        #print 'Here it is:',msg
+        # print 'Here it is:',msg
         start_response('200 OK',
                        [('Content-Type',
                          'application/soap+xml;charset=utf-8;action="%s"' % PCC10_ACK_ACTION)])
         soap = build_pcc10_ack()
-        return [etree.tostring(soap, encoding='utf-8')]
+        # print "Sending ACK:\n", soap
+        return [soap]
     else:
         start_response('404 Not Found', [('Content-Type', 'text/html')])
         return ['<h1>Not Found</h1>']
@@ -171,13 +154,10 @@ if __name__ == "__main__":
     patient_id = options.patient_id
     provision_code = options.provision_code
     server = options.server
-    n = options.nbr
-    with open("pcc-9.template.xml") as f:
-        pcc9 = f.read()
-    pcc9 = pcc9.replace('$PATIENT_ID$', patient_id.replace('&', '&amp;')).replace('$CARE_PROVISION_CODE$', provision_code)
+    n = options.nbr    
     refs = []
     for i in xrange(n):
-        ref = send_pcc9(server, MYENDPOINT, pcc9)
+        ref = send_pcc9(server, MYENDPOINT, provision_code, patient_id)
         print 'I have sent PCC-9 for patient: %s and care prov code: %s' % (patient_id,
                                                                             provision_code)
         print 'SubscriptionRef:%s' % ref
@@ -187,7 +167,7 @@ if __name__ == "__main__":
         print "No subscriptions registered!!"
         sys.exit()
     print 'Registered %s subscription(s) out of %s\nWaiting for PCC-10 on %s...' % (len(refs), options.nbr, PORT)
-    s = wsgi.WSGIServer(('', PORT), pcc10_handler)
+    s = pywsgi.WSGIServer(('', PORT), pcc10_handler)
     try:
         s.serve_forever()
     except KeyboardInterrupt:

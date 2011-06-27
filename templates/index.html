@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+ <head><title>iCARDEA EHR interoperability Framework </title></head>
+ <body>
+ <h1>iCARDEA EHR interoperability Framework</h1>
+ We offer the following services:
+ <ul>
+   
+   <li><a href="xds/">{{base}}/xds/</a>: Here you POST your
+   <a href="http://wiki.ihe.net/index.php?title=XDS.b">XDS.b</a> messages. We implement
+   both the XDS Registry and Repository functionality</li>
+   
+   <li><a href="pcc/">{{base}}/pcc/</a>: Here you POST your
+   <a href="http://wiki.ihe.net/index.php?title=PCC-9">PCC-9</a> messages to subscribe
+   to a patients clinical data updates.</li>
+
+ </ul>
+ <p> Also for debugging purposes you can see:</p>
+ <ul>
+   <li>The current PCC-CM "subscriptions" per Broker:
+   {% for w in workers %}
+   <a href="{{worker_base}}:{{w}}/">Update Broker {{loop.index}}</a>
+   {% endfor %}
+   </li>
+   <li>The
+   <a href='docs/'>the most recent documents submitted</a></li>
+   <li>The
+   <a href='xdsdb/'>whole XDS database as stored in the filesystem</a></li>
+ </ul>
+
+ <small> &copy; 2010-2011 FORTH-ICS All rights reserved.</small>
+ </body>
+</html>

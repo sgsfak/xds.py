@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
+  <script>
+    $(function() {
+    $("form").submit(function () {this.action = "/subscription/"+this.sid.value; return true; });
+    })
+  </script>
+  <style>
+    tr th {background-color: #8B9ABA}
+    tr.active td {background-color: #FF9000;}
+    tr.even td {background-color: #FFE3BF}
+    tr.odd td {background-color: #FFC77F}
+  </style>
+</head>
+<body>
+<div>{{test}}</div>
+  <h1>PCC Update Broker Server</h1>
+  <table border="1">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>id</th><th>Patient id</th><th>Care Provision Code</th><th>Clbk Endpoint</th>
+        <th>Creation date of doc last checked</th><th>Submission date time</th>
+        <th>Delete subscription</th>
+    </tr>
+  </thead>
+    <tbody>
+      {% for s in subs %}
+      <tr class="{{'active' if s.checking else loop.cycle('odd', 'even')}}">
+        <td>{{loop.index}}</td>
+        <td><a href="/subscription/{{s.id}}">{{s.id}}</a></td>
+        <td>{{s.patientId}}</td>
+        <td>{{s.careProvisionCode}}</td>
+        <td><a href="{{s.endpoint}}">{{s.endpoint}}</a></td>
+        <td>{{s.lastDoc}}</td>
+        <td>{{s.storedAt}}</td>
+        <td>
+          <form method='post'>
+            <input type='hidden' name='sid' value="{{s.id}}"/>
+            <input type='hidden' name='method' value='delete'/>
+            <input type='submit' class='button' value='delete!'/>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  &copy; 2010-2011 FORTH-ICS All rights reserved.
+</body>
+</html>

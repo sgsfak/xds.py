@@ -31,6 +31,7 @@ import re
 import cgi
 import socket
 from optparse import OptionParser
+import jinja2
 # import mongo_utils
 from xds_config import *
 
@@ -70,92 +71,19 @@ def parsePid(patientId):
         i += len(delim)
         j = patientId.find('&ISO', i)
         pidroot = patientId[i:j] if j > 0 else patientId[i:]
-    return (pid, pidroot)
+    return {'pid':pid, 'root':pidroot}
 
+jinja2_env = jinja2.Environment(loader=jinja2.FileSystemLoader('templates'))
+
+PCC10_WSA_ACTION = 'urn:hl7-org:v3:QUPC_IN043200UV01'
 def create_pcc10(subscription, entries, patientId):
-    (pid, pidroot) = parsePid(patientId)
-    patName = subscription['patientName'] if pid != '*' else {'given':'','family':''} # XXX
-    pertInfo = "\n".join("<pertinentInformation3>%s</pertinentInformation3>" % etree.tostring(x, xml_declaration=False) 
-                         for x in entries)
-    return """<QUPC_IN043200UV01 xmlns='urn:hl7-org:v3' ITSVersion='XML_1.0'
-  xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'>
-  <id root='1' extension='1'/>
-  <creationTime value='201011111111'/>
-  <interactionId extension='QUPC_IN043200UV' root='2.16.840.1.113883.5'/>
-  <processingCode code='D'/>
-  <processingModeCode code='T'/>
-  <acceptAckCode code='AL'/>
-  <receiver typeCode="RCV">
-    <device determinerCode='INSTANCE'>
-      <id/>
-      <name/>
-      <telecom value='1' />
-      <manufacturerModelName/>
-      <softwareName/>
-    </device>
-  </receiver>
-  <sender typeCode="SND">
-    <device determinerCode='INSTANCE'>
-      <id root="1" extension="EHR"/>
-      <name/>
-      <telecom value='1' />
-      <manufacturerModelName/>
-      <softwareName/>
-    </device>
-  </sender>
-  <controlActProcess moodCode='EVN'>
-    <id extension='1'/>
-    <code code='QUPC_TE043200UV'/>
-    <effectiveTime value='1'/>
-    <authorOrPerformer typeCode='1'></authorOrPerformer>
-    <subject>
-      <registrationEvent>
-	<statusCode code='active'/>
-	<custodian>
-	  <assignedEntity>
-	    <id root='1' extension='1'/>
-	    <addr></addr>
-	    <telecom></telecom>
-	    <assignedOrganization>
-	      <name></name>
-	    </assignedOrganization>
-	  </assignedEntity>
-	</custodian>
-	<subject2>
-	  <careProvisionEvent>
-	    <recordTarget>
-             <patient>
-		<id root='%s' extension='%s'/>
-		<addr></addr>
-		<telecom value='1' use='1'/>
-		<statusCode code='active'/>
-                <patientPerson>
-                  <name>
-                       <given>%s</given>
-                       <family>%s</family>
-                  </name>
-                </patientPerson>
-	      </patient>
-	    </recordTarget>
-%s
-          </careProvisionEvent>
-	</subject2>
-      </registrationEvent>
-    </subject>
-    <queryAck>
-      <queryId extension='%s'/>
-      <statusCode code='1'/>
-      <queryResponseCode code='1'/>
-      <resultCurrentQuantity value='1'/>
-      <resultRemainingQuantity value='1'/>
-    </queryAck>
-  </controlActProcess>
-</QUPC_IN043200UV01>""" % (pidroot, 
-                           pid, 
-                           patName['given'],
-                           patName['family'],
-                           pertInfo,
-                           subscription['queryId'])
+    patId = parsePid(patientId)
+    patName = subscription['patientName'] if patId['pid'] != '*' else {'given':'','family':''} # XXX
+    entries_xml = [etree.tostring(x, xml_declaration=False) for x in entries]
+    template = jinja2_env.get_template('pcc10.xml')
+    return template.render(patId=patId, patName=patName,
+                           pertInfo=entries_xml, queryId=subscription['queryId'],
+                           wsaAction = PCC10_WSA_ACTION, wsaMsgId = uuid.uuid4().urn)
 
 DEFAULT_CARE_MANAGER = 'http://www.example.com:8080/axis2/services/QUPC_AR004030UV_Service'
 def send_pcc10(subscription, entries, patientId):
@@ -164,16 +92,8 @@ def send_pcc10(subscription, entries, patientId):
         endpoint = DEFAULT_CARE_MANAGER
     req = urllib2.Request(endpoint)
     req.add_header('content-type',
-                   'application/soap+xml;charset=utf-8;action="urn:hl7-org:v3:QUPC_IN043200UV01"')
-    xml = create_pcc10(subscription, entries, patientId)
-    soap = """<?xml version='1.0' encoding='UTF-8'?>
-<soapenv:Envelope xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope">
-<soapenv:Header xmlns:wsa="http://www.w3.org/2005/08/addressing">
-<wsa:Action soapenv:mustUnderstand='0'>urn:hl7-org:v3:QUPC_IN043200UV01</wsa:Action>
-<wsa:MessageID>%s</wsa:MessageID>
-</soapenv:Header>
-<soapenv:Body>%s</soapenv:Body>
-</soapenv:Envelope>""" % (uuid.uuid4().urn, xml)
+                   'application/soap+xml;charset=utf-8;action="' + PCC10_WSA_ACTION + '"')
+    soap = create_pcc10(subscription, entries, patientId)
     req.add_data(soap.encode('utf-8'))
     # print 'SENDING\n', soap
     try:
@@ -201,7 +121,7 @@ class SubscriptionLet(Greenlet):
         self.stopped = False
         ## add self to dicts/sets        
         patId = self.subscription['patientId']
-        pid, _ = parsePid(patId)
+        pid = parsePid(patId)['pid']
         workers[self.subscription.get('id')] = self
         if pid == '*':
             workers_per_patient['*'].add(self)
@@ -226,7 +146,7 @@ class SubscriptionLet(Greenlet):
         ## remove from dicts/sets
         del workers[self.subscriptionId()]    
         patId = self.subscription['patientId']
-        pid, _ = parsePid(patId)
+        pid = parsePid(patId)['pid']
         if pid == '*':
             workers_per_patient['*'].remove(self)
         else:
@@ -254,7 +174,7 @@ class SubscriptionLet(Greenlet):
             endpoint = subscription.get('endpoint_') or 'http://example.org/'
             patientId = subscription['patientId']
             query = {'mimeType': 'text/xml', 'storedAt_':{'$gt': lastUpdated}}
-            pid, _ = parsePid(subscription['patientId'])
+            pid = parsePid(subscription['patientId'])['pid']
             if pid != '*':
                 query['patientId'] = patientId
             careRecordTimePeriod = subscription.get('careRecordTimePeriod')
@@ -379,54 +299,16 @@ def schedule_all(timeout, notify_port, modulo=0, m=1):
 
 def get_stats(env, start_response):
     import datetime
-    def subhtml(subscription):
-        dct = subscription
-        dct['lastDoc'] = datetime.datetime.fromtimestamp(subscription['lastChecked_']).isoformat(' ')
-        dct['storedAt'] = datetime.datetime.fromtimestamp(subscription['storedAt_']).isoformat(' ')
-        return """<td><a href='/subscription/%(id)s'>%(id)s</a></td>
-<td>%(patientId)s</td><td>%(careProvisionCode)s</td>
-<td>%(endpoint_)s</td><td>%(lastDoc)s</td><td>%(storedAt)s</td>
-<td><form method='post'>
-     <input type='hidden' name='sid' value='%(id)s'>
-     <input type='hidden' name='method' value='delete'>
-     <input type='submit' class='button' value='delete!'>
-     </form>
-</td>
-""" % dct
-
+    def sub(w):
+        dct = w.subscription
+        dct['lastDoc'] = datetime.datetime.fromtimestamp(w.subscription['lastChecked_']).isoformat(' ')
+        dct['storedAt'] = datetime.datetime.fromtimestamp(w.subscription['storedAt_']).isoformat(' ')
+        dct['endpoint'] = w.subscription['endpoint_']
+        dct['checking'] = w.checking
+        return dct
     start_response('200 OK', [('Content-Type', 'text/html;charset=utf-8')])
-    ws = "\n".join("<tr class='%s'><td>%s.</td>%s</tr>" %
-                   ('active' if i.checking else ['even','odd'][pos % 2],  pos+1, subhtml(i.subscription))
-                   for pos, (k, i) in enumerate(workers.items()))
-    str = '''<html><head>
-     <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
-     <script type="text/javascript">
-     $(function() {
-       $("form").submit(function () {this.action = "/subscription/"+this.sid.value; return true; });
-      })
-     </script>
-<style type="text/css">
-tr th {background-color: #8B9ABA}
-tr.active td {background-color: #FF9000;}
-tr.even td {background-color: #FFE3BF}
-tr.odd td {background-color: #FFC77F}
-</style>
-</head>
-<body>
-<h1>PCC Update Broker Server</h1>
-<table border="1">
-<tr>
-<th>#</th>
-<th>id</th><th>Patient id</th><th>Care Provision Code</th><th>Clbk Endpoint</th>
-<th>Creation date of doc last checked</th><th>Submission date time</th>
-<th>Delete subscription</th>
-</tr>
-%s
-</table>
- &copy; 2010-2011 FORTH-ICS All rights reserved.
-</body>
-</html>''' % ws
-    return [str.encode('utf-8')]
+    template = jinja2_env.get_template('ub_monitor.html')
+    return [template.render(subs=[sub(i) for k, i in workers.items()]) ]
 
 def subscription_resource(subId, env, start_response):
     if not workers.has_key(subId):

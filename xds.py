@@ -36,6 +36,7 @@ import bson
 import socket
 from optparse import OptionParser
 import random
+import jinja2
 # import mongo_utils
 from xds_config import *
 
@@ -56,6 +57,9 @@ NS = {"soap":"http://www.w3.org/2003/05/soap-envelope",
 PNR_XDS_OP = 'urn:ihe:iti:2007:ProvideAndRegisterDocumentSet-b'
 SQ_XDS_OP = 'urn:ihe:iti:2007:RegistryStoredQuery'
 RETR_XDS_OP = 'urn:ihe:iti:2007:RetrieveDocumentSet'
+
+# Some documentation for the metadata (slots, classifications, etc)
+# exists here: http://goo.gl/FuoLb
 
 # PnR Submission Set 
 # (see <http://goo.gl/mppj>)
@@ -660,16 +664,8 @@ class XDS_Handler:
                 self.con = pymongo.Connection(host=mongoHost)
         def GET(self):
                 cherrypy.response.headers['Content-type'] = 'text/html'
-                return ["""<p>This is an <a href='http://www.ihe.net/'>IHE</a>
-<a href='http://ihewiki.wustl.edu/wiki/index.php/XDS_Main_Page'>XDS</a> Registry and Repository server. 
-Some links to begin with:</p>
-<ul>
-<li><a href='http://www.ihe.net/Technical_Framework/index.cfm#IT'>IT Infrastructure Technical Framework</a></li>
-<li><a href='http://wiki.ihe.net/index.php?title=XDS.b'>XDS implementation</a></li>
-</ul>
-<p>
- &copy; 2010-2011 FORTH-ICS All rights reserved.
-"""]
+                tmpl  = jinja2_env.get_template('xds_index.html')
+                return [tmpl.render()]
         def POST(self):
                 print "TE: "+cherrypy.request.headers.get('TRANSFER-ENCODING', "")
                 headers = cherrypy.request.headers
@@ -719,6 +715,8 @@ PCODES_TEMPLATE_IDS = { 'COBSCAT': '1.3.6.1.4.1.19376.1.5.3.1.4.13.2'
                         , 'PSVCCAT':'1.3.6.1.4.1.19376.1.5.3.1.4.14' # XXX
                         , '*':'*' #My extension to get all entries!!
                         }
+
+jinja2_env = jinja2.Environment(loader=jinja2.FileSystemLoader('templates'))
 # See <http://wiki.ihe.net/index.php?title=PCC-9>
 class PCC9_Handler:
         exposed = True
@@ -726,16 +724,8 @@ class PCC9_Handler:
                 self.con = pymongo.Connection(host=mongoHost)
         def GET(self):
                 cherrypy.response.headers['Content-Type'] = 'text/html'
-                return ["""<p>This is an <a href='http://www.ihe.net/'>IHE</a> PCC-CM server 
-accepting PCC-9 messages. 
-Some links to begin with:</p>
-<ul>
-<li><a href='http://wiki.ihe.net/index.php?title=PCC-9'>PCC-9</a></li>
-<li><a href='http://wiki.ihe.net/index.php?title=PCC_TF-2'>PCC TF-2</a></li>
-</ul>
-<p>
- &copy; 2010-2011 FORTH-ICS All rights reserved.
-"""]
+                tmpl  = jinja2_env.get_template('pcc_index.html')
+                return [tmpl.render()]
         def POST(self):
                 reqfile = cherrypy.request.rfile
                 headers = cherrypy.request.headers
@@ -889,51 +879,15 @@ Some links to begin with:</p>
                         break
                 cherrypy.response.headers['Content-Type'] = 'application/soap+xml'
                 typecode = 'AR' if len(errors) > 0 else 'AA'
-                subRef = ''
+                subEndpoint = None
                 if mongoId is not None:
                     subEndpoint = 'http://%s:%s/subscription/%s' % (MYIP, worker_port-1, str(mongoId))
-                    subRef = '''
-                    <wsnt:SubscriptionReference xmlns:wsnt="%s">
-                    <wsa:Address xmlns:wsa="%s">%s</wsa:Address>
-                    </wsnt:SubscriptionReference>''' % (NS['wsnt'], NS['wsa'], subEndpoint)
-                ackDetail = ''
-                if len(errors)>0:
-                    print errors[0]
-                    ackDetail = """
-                        <acknowledgementDetail typeCode='E'>
-                          <code code='%(code)s' displayName=' ' codeSystem='2.16.840.1.113883.5.1100'
-                                codeSystemName='AcknowledgementDetailCode'/>
-                          <text>%(text)s</text>
-                          <location></location>
-                        </acknowledgementDetail>""" % errors[0]
                 ts = time.strftime('%Y%m%d%H%M%S',time.gmtime())
                 ackId = uuid.uuid4().hex
-                return ["""<s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope'>
- <s:Header>
-  %s
- </s:Header>
- <s:Body>
-    <MCCI_IN000002UV01 ITSVersion='XML_1.0' xmlns='urn:hl7-org:v3'>
-	<id root='' extension='%s'/>
-	<creationTime value='%s'/>
-        <interactionId extension='MCCI_IN000002UV01' root='2.16.840.1.113883.5'/>
-        <processingModeCode code='T'/> <!-- T means current processing -->
-	<acceptAckCode code='NE'/>
-	<receiver typeCode='RCV'>
-		<device classCode='DEV' determinerCode='INSTANCE'>
-			<id/>
-		</device>
-	</receiver>
-	<sender typeCode='RCV'>
-		<device classCode='DEV' determinerCode='INSTANCE'>
-			<id/>
-		</device>
-	</sender>
-        <acknowledgement typeCode='%s'>
-          %s
-        </acknowledgement>
-   </MCCI_IN000002UV01>
-</s:Body></s:Envelope>""" % (subRef, ackId, ts, typecode, ackDetail)]
+                template = jinja2_env.get_template('pcc9_ack.xml')
+                return [template.render(subEndpoint = subEndpoint, ackId = ackId,
+                                        hl7MsgTime = ts, ackTypeCode = typecode,
+                                        pcc9Errors = errors)]
 
 class DocsHandler:
         exposed = True
@@ -946,27 +900,16 @@ class DocsHandler:
                                 crs = self.con.xds.docs.find(fields=['entryUUID','patientId'],
                                                              sort=[('storedAt_', pymongo.DESCENDING)],
                                                              limit=max)
-                                lis = "\n".join(["<li><a href='./%s'>%s</a> (patient:'<b>%s</b>')</li>"
-                                                 % (d['entryUUID'],d['entryUUID'], d.get('patientId', '') )
-                                                 for d in crs])
-                                return """<html><head><title>XDS repository: docs recently submitted</title></head>
-                                <body><h1>The last %s docs submitted</h1>
-                                <ul>%s</ul>
-                                </body>
-                                </html>""" % (max, lis)
+                                template = jinja2_env.get_template('xds_docs.html')
+                                return template.render(max=max, docs=crs)
                         else:
                                 d = self.con.xds.docs.find_one({'entryUUID':docid})
                                 if not d:
                                         cherrypy.notfound()
                                 from pymongo import json_util
                                 s = json.dumps(d, default=json_util.default, sort_keys=True, indent = 4)
-                                return """<html><head><title>XDS repository: docs recently submitted</title></head>
-                                <body><h1>Document %s</h1>
-                                <p><a href='%s'>contents</a> (%s)</p>
-                                <h3>Document metadata (raw)</h3>
-                                <pre>%s</pre>
-                                </body>
-                                </html>""" % (d['entryUUID'], d['URI'], d.get('mimeType', ''), s)
+                                template = jinja2_env.get_template('xds_doc.html')
+                                return template.render(d=d, jsonStr=s)
                 except Exception, ex:
                         print "ERROR: %s" % (ex)
                         raise cherrypy.HTTPError()
@@ -1016,32 +959,9 @@ class EHRInteropApp:
                 wor_base = cherrypy.request.scheme +'://' + myhost
                 hs = ', '.join("<a href='%s:%s/'>worker %s</a>" % (wor_base, w-1, i+1)
                                for i, w in enumerate(self.options.notify_ports))
-                return ["""<html>
- <head><title>iCARDEA EHR interoperability Framework </title></head>
- <body>
- <h1>iCARDEA EHR interoperability Framework</h1>
- We offer the following services:
- <ul>
-
- <li><a href="xds/">%s/xds/</a>: Here you POST your
- <a href='http://wiki.ihe.net/index.php?title=XDS.b'>XDS.b</a> messages. We implement
- both the XDS Registry and Repository functionality</li>
- 
- <li><a href="pcc/">%s/pcc/</a>: Here you POST your
- <a href='http://wiki.ihe.net/index.php?title=PCC-9'>PCC-9</a> messages to subscribe
- to a patients clinical data updates.</li>
-
- </ul>
- <p> Also for debugging purposes you can see:
- <ul><li>The current PCC-CM "subscriptions": %s</li>
- <li>The
- <a href='docs/'>the most recent documents submitted</a></li>
- <li>The
- <a href='xdsdb/'>whole XDS database as stored in the filesystem</a></li>
- </ul>
-
- &copy; 2010-2011 FORTH-ICS All rights reserved.
- </body></html>""" % (base, base, hs)]
+                template = jinja2_env.get_template('index.html')
+                return template.render(base=base, worker_base=wor_base,
+                                       workers=[w-1 for w in self.options.notify_ports])
 
 # cherrypy needs an absolute path when dealing wwith static data
 current_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "")

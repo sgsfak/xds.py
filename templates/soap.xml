@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://www.w3.org/2003/05/soap-envelope" xmlns="urn:hl7-org:v3">
+  <soapenv:Header xmlns:wsa="http://www.w3.org/2005/08/addressing">
+{%- if wsaAction is defined %}<wsa:Action soapenv:mustUnderstand='0'>{{wsaAction}}</wsa:Action>{% endif %}
+{%- if wsaMsgId is defined %}<wsa:MessageID>{{wsaMsgId}}</wsa:MessageID>{% endif %}
+{%- if wsaRelatesTo is defined %}<wsa:RelatesTo>{{wsaRelatesTo}}</wsa:RelatesTo>{% endif %}
+{%- if wsaReplyTo is defined %}<wsa:ReplyTo><wsa:Address>{{wsaReplyTo}}</wsa:Address></wsa:ReplyTo>{% endif %}
+{% block soapHeader %}{% endblock %}
+  </soapenv:Header>
+  <soapenv:Body>
+    {% block soapBody %}{% endblock %}
+  </soapenv:Body>
+</soapenv:Envelope>

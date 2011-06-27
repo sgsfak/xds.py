@@ -66,6 +66,10 @@ CAUTION: As described http://blog.mongodb.org/post/137788967[here]
 
  easy_install pymongo
 
+ .. http://pypi.python.org/pypi/Jinja2[Jinja2] (for the templates) by issuing
+
+ easy_install MarkupSafe Jinja2
+
 === Configuration
 
 * Change the line "MONGO_HOST=..." in +xds_config.py+ if mongodb is

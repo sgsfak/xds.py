@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>XDS repository: docs recently submitted</title>
+  </head>
+  <body>
+    <h1>The {{max}} docs most recently submitted</h1>
+    <ul>
+      {% for d in docs %}
+      <li><a href="./{{d.entryUUID}}">{{d.entryUUID}}</a> (patient:'<b>{{d.patientId|e}}</b>')</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>
