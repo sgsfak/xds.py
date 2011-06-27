@@ -676,21 +676,25 @@ Some links to begin with:</p>
                 reqfile = cherrypy.request.rfile
                 maxlen = 10 * 1024 * 1024
                 ct = headers['Content-Type']
-                print "GOT Content-type:",ct
+                cl = int(headers.get('Content-Length', 0))
+                print "==> Content-type:",ct
+                print "==> Content-length:",cl
                 d = parse_content_type(ct)
                 if d['content_type']=='multipart/related':
                     fp = email.parser.FeedParser()
                     fp.feed("Content-type: "+ct+"\r\n")
-                    while True:
-                        data = reqfile.read(4096)
-                        if data == '':
-                            break
-                        fp.feed(data)
+                    if cl == 0:
+                            while True:
+                                    data = reqfile.read(4096)
+                                    if data == '':
+                                            break
+                                    fp.feed(data)
+                    else:
+                            fp.feed(reqfile.read(cl))
                     msg = fp.close()
                     for chunk in handle_mtom_oper(self.con, msg):
                         yield chunk
                 else:
-                    cl = int(headers.get('Content-Length', 0))
                     if cl == 0:
                         data = reqfile.read()
                     else:
