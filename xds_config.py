@@ -1,6 +1,6 @@
 #### Configuration!!
 # the repository id
-MY_REPO_ID= '1.3.6.1.4.1.21367.2008.1.2.700'
+MY_REPO_ID= '1.2.826.0.1.3680043.2.44.248240.2'
 
 # the hostname of the MongoDB
 MONGO_HOST = "localhost"
