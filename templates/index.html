@@ -1,8 +1,16 @@
-<!DOCTYPE html>
-<html>
- <head><title>iCARDEA EHR interoperability Framework </title></head>
- <body>
- <h1>iCARDEA EHR interoperability Framework</h1>
+{%extends "layout.html" %}
+{% block htmlTitle%}iCARDEA EHR interoperability Framework</title>{% endblock %}
+{% block htmlHead %}
+<style>
+ a.ublink {
+    text-decoration: none;
+    padding: 0.4em 1em 0.4em 1em;
+    position: relative;
+}
+</style>
+{% endblock %}
+{% block htmlBody %}
+ <h1 class="ui-corner-all ui-state-default hdr">iCARDEA EHR interoperability Framework</h1>
  We offer the following services:
  <ul>
    
@@ -19,7 +27,7 @@
  <ul>
    <li>The current PCC-CM "subscriptions" per Broker:
    {% for w in workers %}
-   <a href="{{worker_base}}:{{w}}/">Update Broker {{loop.index}}</a>
+   <a href="{{worker_base}}:{{w}}/" class="ublink ui-state-default ui-corner-all">Update Broker {{loop.index}}</a>
    {% endfor %}
    </li>
    <li>The
@@ -27,7 +35,4 @@
    <li>The
    <a href='xdsdb/'>whole XDS database as stored in the filesystem</a></li>
  </ul>
-
- <small> &copy; 2010-2011 FORTH-ICS All rights reserved.</small>
- </body>
-</html>
+{% endblock %}

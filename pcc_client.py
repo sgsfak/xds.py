@@ -112,7 +112,6 @@ def delete_subscription(sub_url):
     except urllib2.HTTPError, ex:
         msg = ex.read()
         print "Error: %s %s" % (ex.code, msg)
-        raise ex
     except urllib2.URLError, ex:
         print "Error: %s " % (ex.reason)
     except:
