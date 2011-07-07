@@ -1,8 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-</head>
-<body>
+{%extends "layout.html"%}
+{% block htmlTitle %}The PCC9 endpoint{% endblock %}
+{% block htmlBody %}
   <p>This is an <a href='http://www.ihe.net/'>IHE</a> PCC-CM server 
   accepting PCC-9 messages. 
   Some links to begin with:</p>
@@ -10,8 +8,4 @@
     <li><a href='http://wiki.ihe.net/index.php?title=PCC-9'>PCC-9</a></li>
     <li><a href='http://wiki.ihe.net/index.php?title=PCC_TF-2'>PCC TF-2</a></li>
   </ul>
-  <p>
-    <small>&copy; 2010-2011 FORTH-ICS All rights reserved.</small>
-  </p>
-</body>
-</html>
+{% endblock %}

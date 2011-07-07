@@ -22,6 +22,7 @@ import pymongo
 from pymongo import objectid
 import bson
 import os
+import datetime
 from lxml import etree
 import sys
 import urllib2
@@ -141,8 +142,6 @@ class SubscriptionLet(Greenlet):
         self._ev.set()
         
     def stop(self):
-        self.stopped = True
-        self.wakeup()
         ## remove from dicts/sets
         del workers[self.subscriptionId()]    
         patId = self.subscription['patientId']
@@ -151,6 +150,10 @@ class SubscriptionLet(Greenlet):
             workers_per_patient['*'].remove(self)
         else:
             workers_per_patient[patId].remove(self)
+        self.stopped = True
+        self.wakeup()
+        # print "%s committing suicide" % (self,)
+        #self.kill()
         
     def match_subscription(self, doc):
         provcode = self.subscription.get('careProvisionCode')
@@ -212,30 +215,52 @@ class SubscriptionLet(Greenlet):
         cpc = self.subscription.get('careProvisionCode')
         if cpc is None:
             cpc = ""
-        return "[%s] Subscription (%s)" % (self.subscriptionId(), self.subscription)
+        return "[%s] Subscription {patient: '%s', code:'%s'}" % (self.subscriptionId(),
+                                                                 self.subscription['patientId'],
+                                                                 cpc)
 
+    def _log_start(self):
+        for m in monitors:
+            m.started(self.subscriptionId(), sub_to_dict(self.subscription))
+    def _log_finish(self):
+        for m in monitors:
+            m.finished(self.subscriptionId())
+    def _log_start_checking(self):
+        self.checking = True
+        for m in monitors:
+            m.check_started(self.subscriptionId())
+    def _log_finish_checking(self):
+        self.checking = False
+        for m in monitors:
+            m.check_finished(self.subscriptionId(), tm_to_iso(self.subscription['lastChecked_']))
+        
     def _run(self):
         sid = self.subscriptionId()
         print "[%s] SubscriptionLet starting.." % sid
+        self._log_start()
         while True:
             try:
-                self.checking = True
+                self._log_start_checking()
                 self.check_subscription()
             except Exception, ex:
                 print "[%s] Oh no! just got: %s" % (sid, ex)
                 raise
             finally:
-                self.checking = False
+                self._log_finish_checking()
                 print "[%s] Going to sleep for %d secs ..." % (sid, self.timeout)
                 op = self._ev.wait(timeout=self.timeout)    
                 if op:
                     self._ev.clear()
                     if self.stopped :
                         break
-
+        self._log_finish()
+        print "%s ending.." % (self,)
+        self.kill() # ???
 workers = {}
 from collections import defaultdict
 workers_per_patient = defaultdict(set)
+
+monitors = set()
 
 def handle_notification(conn, addr):
     bufsize = 4096
@@ -297,19 +322,62 @@ def schedule_all(timeout, notify_port, modulo=0, m=1):
     if notify_port > 0:
         listen_for_new_info(notify_port)
 
+def tm_to_iso(tm):
+    return datetime.datetime.fromtimestamp(tm).isoformat(' ')
+def sub_to_dict(w):
+    dct = w
+    dct['lastDoc'] = tm_to_iso(w['lastChecked_'])
+    dct['storedAt'] = tm_to_iso(w['storedAt_'])
+    dct['endpoint'] = w['endpoint_']
+    return dct
 def get_stats(env, start_response):
-    import datetime
-    def sub(w):
-        dct = w.subscription
-        dct['lastDoc'] = datetime.datetime.fromtimestamp(w.subscription['lastChecked_']).isoformat(' ')
-        dct['storedAt'] = datetime.datetime.fromtimestamp(w.subscription['storedAt_']).isoformat(' ')
-        dct['endpoint'] = w.subscription['endpoint_']
-        dct['checking'] = w.checking
-        return dct
     start_response('200 OK', [('Content-Type', 'text/html;charset=utf-8')])
     template = jinja2_env.get_template('ub_monitor.html')
-    return [template.render(subs=[sub(i) for k, i in workers.items()]) ]
+    return [template.render(subs=[sub_to_dict(i.subscription) for k, i in workers.items()]) ]
 
+def realtime_monitor(env, start_response):
+    start_response('200 OK', [('Content-Type', 'text/event-stream'),
+                              ('Cache-Control', 'no-cache')])
+    import gevent.queue
+    class Monitor:
+        def __init__(self):
+            global monitors
+            self.q_ = gevent.queue.Queue()
+            self.stopped_ = False
+            self.first_ = True
+            monitors.add(self)
+            print "Monitor %s started.." % (hash(self))
+        def started(self, sid, sub):
+            self.q_.put({'op': 'started', 'sid':sid, 'sub':sub})
+        def finished(self, sid):
+            self.q_.put({'op': 'finished', 'sid':sid})
+        def check_started(self, sid):
+            self.q_.put({'op': 'active', 'sid':sid})
+        def check_finished(self, sid, lastDoc):
+            self.q_.put({'op': 'inactive', 'sid':sid, 'lastDoc':lastDoc})
+        def __hash__(self):
+            return hash(self.q_)
+        def __iter__(self):
+            return self
+        def close(self):
+            global monitors
+            monitors.remove(self)
+            print "Monitor %s ended.." % (hash(self))
+        def next(self):
+            if self.stopped_:
+                raise StopIteration()
+            if self.first_:
+                self.first_ = False
+                return '\n\n'
+            try:
+                w = self.q_.get(timeout=3*60);
+            except gevent.queue.Empty:
+                self.stopped_ = True
+                raise StopIteration()
+            return 'data: ' + json.dumps(w) + '\n\n'
+    return Monitor()
+                    
+        
 def subscription_resource(subId, env, start_response):
     if not workers.has_key(subId):
         start_response('404 Not Found', [('Content-Type', 'text/html')])
@@ -365,6 +433,8 @@ def application(env, start_response):
     path = env['PATH_INFO'] or '/'
     if path in ['/', '/subscription/']:
         return get_stats(env, start_response)
+    if path == '/monitor':
+        return realtime_monitor(env, start_response)
     m = REST_RE.match(path)
     if not m:
         start_response('404 Not Found', [('Content-Type', 'text/html')])

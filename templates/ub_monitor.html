@@ -1,26 +1,108 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
+{%extends "layout.html"%}
+{% block htmlTitle %}
+PCC Update Broker Server: Monitoring and Management Console
+{% endblock %}
+{% block htmlHead %}
   <script>
+
+    // Add support for real time monitoring using HTML5's server-sent events
+    // Currently only Chrome, Opera, Safari, and Firefox 6 (Aurora) support this
+    // (M$ IE users: f*ck off)
+    var source = null;
+    var monitor = function() {
+      if (source != null)
+         return;
+      source = new EventSource('/monitor');
+      source.addEventListener('message', function(e) {
+          var data = JSON.parse(e.data);
+          if (data.op == 'started') {
+            addNewSub(data.sub);
+          }
+          else if (data.op == 'finished') {
+            $('tr#s' + data.sid).remove();
+          }
+          else {
+            $('tr#s' + data.sid).toggleClass('ui-state-highlight', data.op == 'active');
+            if (data.op == 'inactive') {
+              $('tr#s' + data.sid + ' > td.lastDoc').text(data.lastDoc);
+            }
+          }
+      }, false)
+      source.addEventListener('open', function(e) {
+         $('#livemon').toggleClass('ui-state-highlight', true);
+         $('#livemon .ui-icon').toggleClass('ui-icon-circle-close', false);
+         $('#livemon .ui-icon').toggleClass('ui-icon-circle-check', true);
+         $('#livemon > a').text('Live Monitoring is on');
+         }, false);
+         
+      source.addEventListener('error', function(e) {
+      $('#livemon').toggleClass('ui-state-highlight', false);
+        if (e.eventPhase == EventSource.CLOSED) {
+         $('#livemon .ui-icon').toggleClass('ui-icon-circle-close', true);
+         $('#livemon .ui-icon').toggleClass('ui-icon-circle-check', false);
+        }
+        $('#livemon > a').text('Live Monitoring is off');
+      }, false);
+      $('#livemon > a').text('Live Monitoring');
+        
+
+      $('#subs tbody form').live('submit', function() { 
+           var sid = $(this).children('input[name="sid"]').attr('value');
+           $.ajax('/subscription/' + sid, {type: 'DELETE'});
+           return false;
+      });
+
+    }
+    var addNewSub = function(s) {
+        var tr = $('<tr>').attr('id', 's'+s.id);
+        tr.append($('<td>').append($('<a>').attr('href', '/subscription/' + s.id).text(s.id)));
+        tr.append($('<td>').text(s.patientId));
+        tr.append($('<td>').text(s.careProvisionCode));
+        tr.append($('<td>').append($('<a>').attr('href', s.endpoint).text(s.endpoint)));
+        tr.append($('<td>').attr('class', 'lastDoc').text(s.lastDoc));
+        tr.append($('<td>').text(s.storedAt));
+
+        var f = $('<form>').attr('method', 'post');
+        f.append($('<input>').attr('type', 'hidden').attr('name', 'sid').attr('value', s.id));
+        f.append($('<input>').attr('type', 'hidden').attr('name', 'method').attr('value', 'delete'));
+        f.append($('<input>').attr('type', 'submit').attr('class', 'ui-state-default ui-corner-all ui-button').attr('value', 'delete!'));
+        tr.append($('<td>').append(f));
+
+        $('#subs > tbody').append(tr);
+    }
     $(function() {
-    $("form").submit(function () {this.action = "/subscription/"+this.sid.value; return true; });
+      $("form").submit(function () {this.action = "/subscription/"+this.sid.value; return true; });
+      if (!!window.EventSource) {
+         $('#livemon > a').click(monitor );
+      }
+      else
+         $('#livemon').hide();
+
     })
   </script>
   <style>
-    tr th {background-color: #8B9ABA}
-    tr.active td {background-color: #FF9000;}
-    tr.even td {background-color: #FFE3BF}
-    tr.odd td {background-color: #FFC77F}
+    tr th {background-color: #ede4d4;}
+    tr:hover {background-color: #FFC77F}
+    #livemon {
+     padding: 0.4em 1em 0.4em 20px;
+     position: relative;
+     text-decoration: none;
+     text-color: black;
+    }
+    #livemon span.ui-icon {
+     left: 0.2em;
+     margin: -8px 5px 0 0;
+     position: absolute;
+     top: 50%;
+    }
   </style>
-</head>
-<body>
-<div>{{test}}</div>
-  <h1>PCC Update Broker Server</h1>
-  <table border="1">
+{% endblock %}
+{% block htmlBody %}
+  <h1 class="ui-corner-all ui-state-default hdr">PCC Update Broker Server: Monitoring and Management Console</h1>
+  <p><span class="ui-state-default ui-corner-all ui-state-hover" id="livemon"><a href='#'>Start Live Monitoring</a><span class="ui-icon ui-icon-circle-close"></span></span></p>
+  <table border="1" id="subs" class="ui-corner-all">
     <thead>
       <tr>
-        <th>#</th>
         <th>id</th><th>Patient id</th><th>Care Provision Code</th><th>Clbk Endpoint</th>
         <th>Creation date of doc last checked</th><th>Submission date time</th>
         <th>Delete subscription</th>
@@ -28,25 +110,22 @@
   </thead>
     <tbody>
       {% for s in subs %}
-      <tr class="{{'active' if s.checking else loop.cycle('odd', 'even')}}">
-        <td>{{loop.index}}</td>
+      <tr id="s{{s.id}}" class="{{'ui-state-highlight' if s.checking else ''}}">
         <td><a href="/subscription/{{s.id}}">{{s.id}}</a></td>
-        <td>{{s.patientId}}</td>
-        <td>{{s.careProvisionCode}}</td>
+        <td>{{s.patientId|e}}</td>
+        <td>{{s.careProvisionCode|e}}</td>
         <td><a href="{{s.endpoint}}">{{s.endpoint}}</a></td>
-        <td>{{s.lastDoc}}</td>
+        <td class="lastDoc">{{s.lastDoc}}</td>
         <td>{{s.storedAt}}</td>
         <td>
           <form method='post'>
             <input type='hidden' name='sid' value="{{s.id}}"/>
             <input type='hidden' name='method' value='delete'/>
-            <input type='submit' class='button' value='delete!'/>
+            <input type='submit' class='ui-state-default ui-corner-all ui-button' value='delete!'/>
           </form>
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  &copy; 2010-2011 FORTH-ICS All rights reserved.
-</body>
-</html>
+{% endblock %}

@@ -1,8 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-</head>
-<body>
+{%extends "layout.html"%}
+{% block htmlTitle %}The XDS Registry endpoint{% endblock %}
+{% block htmlBody %}
+<h1>iCARDEA XDS Registry and Repository server</h1>
   <p>This is an <a href='http://www.ihe.net/'>IHE</a>
   <a href='http://ihewiki.wustl.edu/wiki/index.php/XDS_Main_Page'>XDS</a> Registry and Repository server. 
   Some links to begin with:</p>
@@ -10,8 +9,4 @@
     <li><a href='http://www.ihe.net/Technical_Framework/index.cfm#IT'>IT Infrastructure Technical Framework</a></li>
     <li><a href='http://wiki.ihe.net/index.php?title=XDS.b'>XDS implementation</a></li>
   </ul>
-  <p>
-    <small>&copy; 2010-2011 FORTH-ICS All rights reserved.</small>
-  </p>
-</body>
-</html>
+{% endblock %}

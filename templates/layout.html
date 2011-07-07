@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+ <head>
+   <title>{% block htmlTitle %}{% endblock %}</title>
+<!--[if lt IE 9]>
+ <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+<![endif]-->
+  <link rel="stylesheet" type="text/css" href="//yui.yahooapis.com/3.3.0/build/cssreset/reset-min.css" />
+  <link rel="stylesheet" type="text/css" href="//yui.yahooapis.com/3.3.0/build/cssbase/base-min.css" />
+  <link rel="stylesheet" type="text/css" href="//yui.yahooapis.com/3.3.0/build/cssfonts/fonts-min.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Ubuntu&amp;v1"/>
+  <link rel="stylesheet" type="text/css" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/themes/sunny/jquery-ui.css"/>
+  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js"></script>
+  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/jquery-ui.min.js"></script>
+  {% block htmlHead %}{% endblock %}
+  <style>
+    body {
+      font-family:'Ubuntu', arial, serif;
+      font-size: 100%;
+      padding-top: 5px;
+      padding-left: 5px;
+    }
+    footer {
+     font-size: 10px;
+     font-size: 85%;
+     padding-top: 20px;
+    }
+    .hdr {
+      padding-bottom: 20px;
+      padding-left: 20px;
+      padding-top: 20px;
+    }
+</style>
+</head>
+<body>
+<div id="content">
+{% block htmlBody %}{% endblock %}
+</div>
+{% block footer %}
+<footer>
+ &copy; 2010-2011 <a href="http://www.ics.forth.gr/">FORTH-ICS</a> All rights reserved.
+</footer>
+{% endblock %}
+ </body>
+</html>
